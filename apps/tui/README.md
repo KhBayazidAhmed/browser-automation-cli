@@ -58,25 +58,39 @@ Start recording on any website:
 bun run record workflows/my-flow.json https://news.ycombinator.com
 ```
 
-### In-Page HUD Toolbar & Controls
+### In-Page HUD Toolbar & Live Config Inspector
 
 ```
-┌───────────────────────────────────────────────────────────────────────────────────────────┐
-│ ⠿ | 🔴 REC (3) | ⏸️ Pause | 🔍 Extract Text | 📊 Extract List | 📸 Screenshot | ↩ Undo | 🛑 Finish | ◀ │
-└───────────────────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ ⠿ | 🔴 REC (4) | ⏸️ Pause | 🔍 Extract | 📊 List | 🔎 Assert | ⏱️ Wait | 📸 Shot | ⚙️ Config (4) | ↩ Undo | 🛑 Finish │
+└─────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 | Control | Action |
 | :--- | :--- |
 | **Normal Click** | Records a click action with smart, resilient selector. |
-| **Type in Input** | Records input text on change/submit or Enter key press. |
+| **Type in Input** | Records input text on change/submit with target labels. |
 | **🔍 Extract Text** *(Shift+Click)* | Opens in-page variable modal to extract text into a named variable. |
 | **📊 Extract List** | Click one repeated item card or table row; automatically extracts all matching items with titles & links. |
-| **🔎 Assert Text** *(Alt+Click)* | Injects a test assertion verifying the element contains the clicked text. |
+| **🔎 Assert Text** *(Alt+Click)* | Opens Assertion modal with Strict Equal, Substring Contains, or Regex matching options. |
+| **⏱️ Add Wait** | Injects custom delay (`wait: 1500ms`) or dynamic wait for selector. |
+| **⚙️ Config (N)** | **Live Config Inspector Drawer**: View real-time JSON config, inspect/delete/reorder steps, and manage variables. |
 | **⏸️ Pause / Resume** | Pause recording to navigate or solve CAPTCHAs without recording noise. |
 | **↩ Undo Step** | Reverts the last recorded action. |
 | **📸 Screenshot** | Injects an instant screenshot step at that point in the flow. |
 | **🛑 Finish & Save** | Saves the flow to JSON and closes the browser. |
+
+### Interactive Terminal CLI Commands While Recording
+
+While Chrome is open, the terminal prompt gives you real-time inspection and control:
+- `c` or `config` — Print live, syntax-formatted JSON workflow configuration
+- `s` or `steps` — Print numbered step-by-step breakdown
+- `w <ms>` — Insert wait delay (e.g. `w 2000`)
+- `u` or `undo` — Undo last recorded step
+- `d <num>` — Delete any step by index (e.g. `d 2`)
+- `v <key>=<val>` — Add or update a workflow variable (e.g. `v userEmail=test@corp.com`)
+- `p` or `pause` — Toggle pause / resume
+- `f` or `[Enter]` on empty line — Finish and save workflow
 
 ---
 
