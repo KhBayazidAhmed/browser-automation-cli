@@ -4,8 +4,7 @@ import type { TaskDefinition } from "../types.js";
 export const siteAuditTask: TaskDefinition = {
 	id: "site-audit",
 	name: "Website Health & DOM Audit",
-	description:
-		"Audits a website for speed, DOM metrics, SEO tags, and captures a screenshot",
+	description: "Audits a website for speed, DOM metrics, SEO tags, and captures a screenshot",
 	params: [
 		{
 			name: "url",
@@ -31,20 +30,12 @@ export const siteAuditTask: TaskDefinition = {
 		const auditData = await page.evaluate(() => {
 			const title = document.title;
 			const metaDescription =
-				document
-					.querySelector('meta[name="description"]')
-					?.getAttribute("content") ||
-				document
-					.querySelector('meta[property="og:description"]')
-					?.getAttribute("content") ||
+				document.querySelector('meta[name="description"]')?.getAttribute("content") ||
+				document.querySelector('meta[property="og:description"]')?.getAttribute("content") ||
 				"";
 
-			const h1s = Array.from(document.querySelectorAll("h1")).map((h) =>
-				h.innerText.trim(),
-			);
-			const h2s = Array.from(document.querySelectorAll("h2")).map((h) =>
-				h.innerText.trim(),
-			);
+			const h1s = Array.from(document.querySelectorAll("h1")).map((h) => h.innerText.trim());
+			const h2s = Array.from(document.querySelectorAll("h2")).map((h) => h.innerText.trim());
 			const linksCount = document.querySelectorAll("a").length;
 			const imagesCount = document.querySelectorAll("img").length;
 			const scriptsCount = document.querySelectorAll("script").length;

@@ -4,8 +4,7 @@ import type { TaskDefinition } from "../types.js";
 export const formAutomationTask: TaskDefinition = {
 	id: "form-submit",
 	name: "Interactive Form Automation",
-	description:
-		"Demonstrates automated form filling, input validation, and submission",
+	description: "Demonstrates automated form filling, input validation, and submission",
 	params: [
 		{
 			name: "name",

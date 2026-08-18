@@ -36,9 +36,7 @@ export const scrapeHnTask: TaskDefinition = {
 			const rows = Array.from(document.querySelectorAll("tr.athing"));
 			return rows.slice(0, maxCount).map((row) => {
 				const id = row.getAttribute("id") || "";
-				const titleEl = row.querySelector(
-					"span.titleline > a",
-				) as HTMLAnchorElement | null;
+				const titleEl = row.querySelector("span.titleline > a") as HTMLAnchorElement | null;
 				const subtext = row.nextElementSibling;
 				const scoreEl = subtext?.querySelector(".score");
 				const authorEl = subtext?.querySelector(".hnuser");

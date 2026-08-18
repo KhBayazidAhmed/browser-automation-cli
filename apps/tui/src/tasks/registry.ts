@@ -4,11 +4,7 @@ import { Browser } from "../cdp/browser.js";
 import { formAutomationTask } from "./builtin/form-automation.js";
 import { scrapeHnTask } from "./builtin/scrape-hn.js";
 import { siteAuditTask } from "./builtin/site-audit.js";
-import type {
-	TaskDefinition,
-	TaskExecutionResult,
-	TaskLogger,
-} from "./types.js";
+import type { TaskDefinition, TaskExecutionResult, TaskLogger } from "./types.js";
 
 const colors = {
 	reset: "\x1b[0m",
@@ -60,14 +56,10 @@ export class TaskRegistry {
 		}
 
 		const log: TaskLogger = {
-			info: (msg: string) =>
-				console.log(`  ${colors.cyan}ℹ${colors.reset} ${msg}`),
-			success: (msg: string) =>
-				console.log(`  ${colors.green}✓${colors.reset} ${msg}`),
-			warn: (msg: string) =>
-				console.log(`  ${colors.yellow}⚠${colors.reset} ${msg}`),
-			error: (msg: string) =>
-				console.log(`  ${colors.red}✗${colors.reset} ${msg}`),
+			info: (msg: string) => console.log(`  ${colors.cyan}ℹ${colors.reset} ${msg}`),
+			success: (msg: string) => console.log(`  ${colors.green}✓${colors.reset} ${msg}`),
+			warn: (msg: string) => console.log(`  ${colors.yellow}⚠${colors.reset} ${msg}`),
+			error: (msg: string) => console.log(`  ${colors.red}✗${colors.reset} ${msg}`),
 		};
 
 		console.log(
