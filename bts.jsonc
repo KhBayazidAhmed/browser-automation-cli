@@ -16,7 +16,7 @@
   "backend": "none",
   "runtime": "none",
   "frontend": [],
-  "addons": ["biome", "husky", "opentui", "turborepo", "wxt"],
+  "addons": ["biome", "husky", "opentui", "turborepo"],
   "examples": [],
   "auth": "none",
   "payments": "none",
