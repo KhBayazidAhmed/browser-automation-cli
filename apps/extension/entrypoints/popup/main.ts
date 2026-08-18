@@ -1,8 +1,8 @@
 import "./style.css";
-import wxtLogo from "/wxt.svg";
 
 import typescriptLogo from "@/assets/typescript.svg";
 import { setupCounter } from "@/components/counter";
+import wxtLogo from "/wxt.svg";
 
 document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
   <div>
