@@ -1,10 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { Page } from "../src/cdp/page.js";
-import {
-	setupTestContext,
-	type TestContext,
-	teardownTestContext,
-} from "./fixtures/browser.js";
+import { setupTestContext, type TestContext, teardownTestContext } from "./fixtures/browser.js";
 
 describe("Forms, Inputs & DOM Actions", () => {
 	let ctx: TestContext;
@@ -60,8 +56,6 @@ describe("Forms, Inputs & DOM Actions", () => {
 			timeout: 3000,
 		});
 		expect(found).toBe(true);
-		expect(await page.getText("#async-banner")).toBe(
-			"Async Operation Finished",
-		);
+		expect(await page.getText("#async-banner")).toBe("Async Operation Finished");
 	});
 });

@@ -3,11 +3,7 @@ import { existsSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { FlowRunner } from "../src/flow/runner.js";
 import type { FlowDefinition } from "../src/flow/types.js";
-import {
-	setupTestContext,
-	type TestContext,
-	teardownTestContext,
-} from "./fixtures/browser.js";
+import { setupTestContext, type TestContext, teardownTestContext } from "./fixtures/browser.js";
 
 describe("Declarative Flows & Multi-Step Extraction", () => {
 	let ctx: TestContext;
@@ -74,9 +70,7 @@ describe("Declarative Flows & Multi-Step Extraction", () => {
 		const result = await FlowRunner.run(flow, {}, { headless: true });
 		expect(result.success).toBe(true);
 		expect(result.steps.length).toBe(6);
-		expect(result.data.portalStatus).toBe(
-			"SAVED:lead@enterprise.com:AUTH-8877",
-		);
+		expect(result.data.portalStatus).toBe("SAVED:lead@enterprise.com:AUTH-8877");
 	}, 15000);
 
 	test("2. extracts tabular collections with filterText strict filtering", async () => {
@@ -229,11 +223,7 @@ describe("Declarative Flows & Multi-Step Extraction", () => {
 			],
 		};
 
-		const failResult = await FlowRunner.run(
-			failingFlow,
-			{},
-			{ headless: true },
-		);
+		const failResult = await FlowRunner.run(failingFlow, {}, { headless: true });
 		expect(failResult.success).toBe(false);
 		expect(failResult.error).toContain("does-not-exist-element-99");
 	}, 15000);

@@ -2,11 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { Page } from "../src/cdp/page.js";
 import { FlowRunner } from "../src/flow/runner.js";
 import type { FlowDefinition } from "../src/flow/types.js";
-import {
-	setupTestContext,
-	type TestContext,
-	teardownTestContext,
-} from "./fixtures/browser.js";
+import { setupTestContext, type TestContext, teardownTestContext } from "./fixtures/browser.js";
 
 describe("Text Case Sensitivity, Regex & Normalization Engine", () => {
 	let ctx: TestContext;

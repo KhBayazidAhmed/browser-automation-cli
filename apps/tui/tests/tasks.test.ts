@@ -1,10 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { taskRegistry } from "../src/tasks/registry.js";
-import {
-	setupTestContext,
-	type TestContext,
-	teardownTestContext,
-} from "./fixtures/browser.js";
+import { setupTestContext, type TestContext, teardownTestContext } from "./fixtures/browser.js";
 
 describe("Programmatic Tasks & Task Registry Suite", () => {
 	let ctx: TestContext;
@@ -64,9 +60,7 @@ describe("Programmatic Tasks & Task Registry Suite", () => {
 		expect(result.data).toBeDefined();
 		expect(result.data.submittedEmail).toBe("alice@automated.io");
 		expect(result.data.submittedName).toBe("Alice Engineer");
-		expect(result.data.resultText).toContain(
-			"Registration Successful for: Alice Engineer",
-		);
+		expect(result.data.resultText).toContain("Registration Successful for: Alice Engineer");
 	}, 15000);
 
 	test("4. handles unknown task IDs gracefully with clear error", async () => {

@@ -17,8 +17,7 @@ export async function setupTestContext(): Promise<TestContext> {
 	}
 
 	if (!sharedBrowser) {
-		const isHeaded =
-			process.env.HEADED === "1" || process.env.HEADED === "true";
+		const isHeaded = process.env.HEADED === "1" || process.env.HEADED === "true";
 		sharedBrowser = await Browser.launch({
 			headless: !isHeaded,
 		});

@@ -1,10 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { Page } from "../src/cdp/page.js";
-import {
-	setupTestContext,
-	type TestContext,
-	teardownTestContext,
-} from "./fixtures/browser.js";
+import { setupTestContext, type TestContext, teardownTestContext } from "./fixtures/browser.js";
 
 describe("Strict Text Locators & Element Disambiguation", () => {
 	let ctx: TestContext;

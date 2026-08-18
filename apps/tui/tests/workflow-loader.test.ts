@@ -48,9 +48,7 @@ describe("Workflow Loader Suite", () => {
 		);
 
 		const workflows = loadAllWorkflows();
-		const found = workflows.find(
-			(w) => w.filename === "temp-invalid-loader.json",
-		);
+		const found = workflows.find((w) => w.filename === "temp-invalid-loader.json");
 		expect(found).toBeUndefined();
 
 		// Clean up
