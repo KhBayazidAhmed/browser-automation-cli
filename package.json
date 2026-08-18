@@ -24,6 +24,7 @@
 		"check-types": "turbo run check-types",
 		"dev:tui": "turbo run dev -F tui --",
 		"check": "biome check --write .",
+		"check:max-lines": "bun scripts/check-max-lines.ts",
 		"prepare": "husky"
 	},
 	"dependencies": {
