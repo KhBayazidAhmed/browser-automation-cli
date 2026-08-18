@@ -93,6 +93,38 @@ const PAGES: Record<string, string> = {
       </body>
     </html>
   `,
+
+	"/text-cases": `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Text Case & Normalization Test</title>
+        <style>
+          .uppercase-css { text-transform: uppercase; }
+        </style>
+      </head>
+      <body>
+        <div id="output">none</div>
+        <button id="btn-submit" onclick="document.getElementById('output').innerText = 'SUBMIT_CLICKED';">Submit Application</button>
+        <button id="btn-cancel" onclick="document.getElementById('output').innerText = 'CANCEL_CLICKED';">CANCEL NOW</button>
+        <button id="btn-css-cased" class="uppercase-css" onclick="document.getElementById('output').innerText = 'CSS_CASED_CLICKED';">mixed Case Text</button>
+        
+        <div id="multiline-message">
+          Welcome
+          Back,
+          Enterprise User!
+        </div>
+
+        <div id="invoice-id">Invoice #INV-2026-8842-OK</div>
+        <span id="version-tag">Build v2.10.4-beta (rev 9811)</span>
+
+        <form onsubmit="event.preventDefault(); document.getElementById('output').innerText = 'FORM:' + document.getElementById('coupon').value;">
+          <input id="coupon" placeholder="ENTER PROMO CODE" aria-label="Customer Discount Voucher" />
+          <button id="btn-apply" type="submit">Apply Discount</button>
+        </form>
+      </body>
+    </html>
+  `,
 };
 
 export function startTestServer(): TestServer {

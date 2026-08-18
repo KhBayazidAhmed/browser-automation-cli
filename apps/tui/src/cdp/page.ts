@@ -24,6 +24,38 @@ export interface ViewportOptions {
 	isMobile?: boolean;
 }
 
+export interface TextMatchOptions {
+	text?: string;
+	strictText?: boolean | string;
+	ignoreCase?: boolean;
+	regex?: string | RegExp;
+	startsWith?: string;
+	endsWith?: string;
+	matches?: string | RegExp;
+	normalizeWhitespace?: boolean;
+}
+
+export interface SelectorOptions extends TextMatchOptions {
+	timeout?: number;
+	selector?: string;
+}
+
+export interface TypeOptions extends TextMatchOptions {
+	clearFirst?: boolean;
+	timeout?: number;
+	targetText?: string;
+}
+
+export interface AssertOptions extends TextMatchOptions {
+	equals?: string;
+	contains?: string;
+	startsWith?: string;
+	endsWith?: string;
+	matches?: string | RegExp;
+	attribute?: string;
+	timeout?: number;
+}
+
 export class Page {
 	private initialized = false;
 
@@ -125,62 +157,139 @@ export class Page {
 		return response.result?.value as T;
 	}
 
+	private serializeMatchOptions(
+		options: TextMatchOptions = {},
+	): Record<string, any> {
+		const rawRegex = options.regex || options.matches;
+		return {
+			text: options.text,
+			strictText: options.strictText,
+			ignoreCase: options.ignoreCase,
+			regex:
+				rawRegex instanceof RegExp
+					? rawRegex.source
+					: typeof rawRegex === "string"
+						? rawRegex
+						: undefined,
+			regexFlags: rawRegex instanceof RegExp ? rawRegex.flags : undefined,
+			startsWith: options.startsWith,
+			endsWith: options.endsWith,
+			normalizeWhitespace: options.normalizeWhitespace,
+		};
+	}
+
 	async waitForSelector(
 		selector?: string,
-		options: {
-			timeout?: number;
-			text?: string;
-			strictText?: boolean | string;
-		} = {},
+		options: SelectorOptions = {},
 	): Promise<boolean> {
 		await this.init();
 		const timeout = options.timeout || 10000;
 		const startTime = Date.now();
+		const matchOpts = this.serializeMatchOptions(options);
 
 		while (Date.now() - startTime < timeout) {
 			const exists = await this.evaluate(
-				(sel, text, strictText) => {
-					let targetText = text;
+				(sel, opts) => {
+					let s = sel?.trim() || "";
+					let targetText = opts.text;
 					let isStrict = false;
+					let ignoreCase = Boolean(opts.ignoreCase);
+					let regex = opts.regex;
+					let regexFlags = opts.regexFlags || "";
+					let startsWith = opts.startsWith;
+					let endsWith = opts.endsWith;
+					const normalizeWhitespace = opts.normalizeWhitespace !== false;
 
-					if (typeof strictText === "string") {
-						targetText = strictText;
+					if (typeof opts.strictText === "string") {
+						targetText = opts.strictText;
 						isStrict = true;
-					} else if (strictText === true) {
+					} else if (opts.strictText === true) {
 						isStrict = true;
-					} else if (text && strictText !== false) {
+					} else if (opts.text && opts.strictText !== false) {
 						isStrict = true;
 					}
 
-					let s = sel?.trim() || "";
 					if (s) {
-						const strictQuotedMatch = s.match(/^text\s*=\s*["']([^"']+)["']$/i);
-						if (strictQuotedMatch) {
-							targetText = strictQuotedMatch[1];
+						const flaggedStrictMatch = s.match(
+							/^text\/([a-z]+)\s*=\s*["']([^"']+)["']$/i,
+						);
+						if (flaggedStrictMatch) {
+							targetText = flaggedStrictMatch[2];
 							isStrict = true;
+							if (flaggedStrictMatch[1].toLowerCase().includes("i"))
+								ignoreCase = true;
 							s = "";
 						} else {
-							const textMatch = s.match(/^text\s*=\s*(.+)$/i);
-							if (textMatch) {
-								targetText = textMatch[1]?.trim();
-								isStrict = strictText !== false;
+							const strictQuotedMatch = s.match(
+								/^text\s*=\s*["']([^"']+)["']$/i,
+							);
+							if (strictQuotedMatch) {
+								targetText = strictQuotedMatch[1];
+								isStrict = true;
 								s = "";
 							} else {
-								const textIsMatch = s.match(
-									/^(.*?):text-is\s*\(\s*["']([^"']+)["']\s*\)$/i,
-								);
-								if (textIsMatch) {
-									s = textIsMatch[1]?.trim() || "";
-									targetText = textIsMatch[2];
-									isStrict = true;
+								const regexMatch = s.match(/^text\s*=\s*\/(.+)\/([a-z]*)$/i);
+								if (regexMatch) {
+									regex = regexMatch[1];
+									regexFlags = regexMatch[2];
+									s = "";
 								} else {
-									const hasTextMatch = s.match(
-										/^(.*?):(has-text|contains)\s*\(\s*["']([^"']+)["']\s*\)$/i,
-									);
-									if (hasTextMatch) {
-										s = hasTextMatch[1]?.trim() || "";
-										targetText = hasTextMatch[3];
-										isStrict = false;
+									const textMatch = s.match(/^text\s*=\s*(.+)$/i);
+									if (textMatch) {
+										targetText = textMatch[1]?.trim();
+										isStrict = opts.strictText !== false;
+										s = "";
+									} else {
+										const textMatches = s.match(
+											/^(.*?):text-matches\s*\(\s*["']([^"']+)["'](?:\s*,\s*["']([a-z]*)["'])?\s*\)$/i,
+										);
+										if (textMatches) {
+											s = textMatches[1]?.trim() || "";
+											regex = textMatches[2];
+											regexFlags = textMatches[3] || (ignoreCase ? "i" : "");
+										} else {
+											const textIsMatch = s.match(
+												/^(.*?):text-is\s*\(\s*["']([^"']+)["'](?:\s*,\s*["']?([a-z]*)["']?)?\s*\)$/i,
+											);
+											if (textIsMatch) {
+												s = textIsMatch[1]?.trim() || "";
+												targetText = textIsMatch[2];
+												isStrict = true;
+												if (textIsMatch[3]?.toLowerCase().includes("i"))
+													ignoreCase = true;
+											} else {
+												const startsWithMatch = s.match(
+													/^(.*?):starts-with\s*\(\s*["']([^"']+)["'](?:\s*,\s*["']?([a-z]*)["']?)?\s*\)$/i,
+												);
+												if (startsWithMatch) {
+													s = startsWithMatch[1]?.trim() || "";
+													startsWith = startsWithMatch[2];
+													if (startsWithMatch[3]?.toLowerCase().includes("i"))
+														ignoreCase = true;
+												} else {
+													const endsWithMatch = s.match(
+														/^(.*?):ends-with\s*\(\s*["']([^"']+)["'](?:\s*,\s*["']?([a-z]*)["']?)?\s*\)$/i,
+													);
+													if (endsWithMatch) {
+														s = endsWithMatch[1]?.trim() || "";
+														endsWith = endsWithMatch[2];
+														if (endsWithMatch[3]?.toLowerCase().includes("i"))
+															ignoreCase = true;
+													} else {
+														const hasTextMatch = s.match(
+															/^(.*?):(has-text|contains)\s*\(\s*["']([^"']+)["'](?:\s*,\s*["']?([a-z]*)["']?)?\s*\)$/i,
+														);
+														if (hasTextMatch) {
+															s = hasTextMatch[1]?.trim() || "";
+															targetText = hasTextMatch[3];
+															isStrict = false;
+															if (hasTextMatch[4]?.toLowerCase().includes("i"))
+																ignoreCase = true;
+														}
+													}
+												}
+											}
+										}
 									}
 								}
 							}
@@ -194,14 +303,20 @@ export class Page {
 								document.querySelectorAll(s),
 							) as HTMLElement[];
 						} catch {
-							if (!targetText) {
+							if (!targetText && !regex && !startsWith && !endsWith) {
 								targetText = s;
-								isStrict = strictText !== false;
+								isStrict = opts.strictText !== false;
 							}
 						}
 					}
 
-					if (candidates.length === 0 && targetText) {
+					const hasTextCheck =
+						Boolean(targetText !== undefined && targetText !== "") ||
+						Boolean(regex) ||
+						Boolean(startsWith) ||
+						Boolean(endsWith);
+
+					if (candidates.length === 0 && hasTextCheck) {
 						candidates = Array.from(
 							document.querySelectorAll(
 								"button, a, input, textarea, select, label, summary, [role='button'], [role='link'], [role='tab'], [role='menuitem'], [role='option'], [tabindex], h1, h2, h3, h4, h5, h6, p, span, div, li, td, th, *",
@@ -209,127 +324,217 @@ export class Page {
 						) as HTMLElement[];
 					}
 
-					if (targetText !== undefined && targetText !== "") {
-						const targetNorm = targetText.trim();
-						for (const el of candidates) {
-							if (el.closest && el.closest("#__cdp_recorder_hud__")) continue;
-							const inner = el.innerText?.trim() ?? "";
-							const content = el.textContent?.trim() ?? "";
-							const val =
-								"value" in el && typeof (el as any).value === "string"
-									? (el as any).value.trim()
-									: "";
-							const aria = el.getAttribute("aria-label")?.trim() ?? "";
-							const placeholder = el.getAttribute("placeholder")?.trim() ?? "";
-							const title = el.getAttribute("title")?.trim() ?? "";
-
-							if (isStrict) {
-								if (
-									inner === targetNorm ||
-									content === targetNorm ||
-									val === targetNorm ||
-									aria === targetNorm ||
-									placeholder === targetNorm ||
-									title === targetNorm
-								) {
-									return true;
-								}
-							} else {
-								if (
-									inner.includes(targetNorm) ||
-									content.includes(targetNorm) ||
-									val.includes(targetNorm) ||
-									aria.includes(targetNorm) ||
-									placeholder.includes(targetNorm) ||
-									title.includes(targetNorm)
-								) {
-									return true;
-								}
-							}
+					const normalize = (str: any) => {
+						if (str === null || str === undefined) return "";
+						let res = String(str);
+						if (normalizeWhitespace) {
+							res = res.replace(/\s+/g, " ");
 						}
-						return false;
+						return res.trim();
+					};
+
+					let regexObj: RegExp | null = null;
+					if (regex) {
+						try {
+							regexObj = new RegExp(
+								regex,
+								regexFlags || (ignoreCase ? "i" : ""),
+							);
+						} catch {}
 					}
 
-					return candidates.length > 0;
+					const targetNorm = normalize(targetText);
+					const targetCased = ignoreCase
+						? targetNorm.toLowerCase()
+						: targetNorm;
+					const startsWithNorm = startsWith ? normalize(startsWith) : null;
+					const startsWithCased =
+						startsWithNorm && ignoreCase
+							? startsWithNorm.toLowerCase()
+							: startsWithNorm;
+					const endsWithNorm = endsWith ? normalize(endsWith) : null;
+					const endsWithCased =
+						endsWithNorm && ignoreCase
+							? endsWithNorm.toLowerCase()
+							: endsWithNorm;
+
+					for (const el of candidates) {
+						if (el.closest && el.closest("#__cdp_recorder_hud__")) continue;
+						const inner = normalize(el.innerText);
+						const content = normalize(el.textContent);
+						const val =
+							"value" in el && typeof (el as any).value === "string"
+								? normalize((el as any).value)
+								: "";
+						const aria = normalize(el.getAttribute("aria-label"));
+						const placeholder = normalize(el.getAttribute("placeholder"));
+						const title = normalize(el.getAttribute("title"));
+						const alt = normalize(el.getAttribute("alt"));
+
+						const values = [
+							inner,
+							content,
+							val,
+							aria,
+							placeholder,
+							title,
+							alt,
+						].filter(Boolean);
+						if (values.length === 0) {
+							if (!hasTextCheck) return true;
+							continue;
+						}
+
+						for (const rawV of values) {
+							const v = ignoreCase ? rawV.toLowerCase() : rawV;
+							if (regexObj) {
+								if (regexObj.test(rawV)) return true;
+							} else if (startsWithCased !== null) {
+								if (v.startsWith(startsWithCased)) return true;
+							} else if (endsWithCased !== null) {
+								if (v.endsWith(endsWithCased)) return true;
+							} else if (targetNorm !== "") {
+								if (isStrict) {
+									if (v === targetCased) return true;
+								} else {
+									if (v.includes(targetCased)) return true;
+								}
+							} else if (!hasTextCheck) {
+								return true;
+							}
+						}
+					}
+					return false;
 				},
 				selector,
-				options.text,
-				options.strictText,
+				matchOpts,
 			);
 
 			if (exists) return true;
-			await new Promise((r) => setTimeout(r, 100));
+			await new Promise((r) => setTimeout(r, 50));
 		}
 
 		throw new Error(
-			`Timeout waiting for element${selector ? ` "${selector}"` : ""}${options.text || options.strictText ? ` with text "${options.strictText || options.text}"` : ""} (${timeout}ms)`,
+			`Timeout waiting for element${selector ? ` "${selector}"` : ""}${options.text || options.strictText ? ` with text "${options.strictText || options.text}"` : ""}${options.regex ? ` matching /${options.regex}/` : ""} (${timeout}ms)`,
 		);
 	}
 
 	async waitForText(
 		text: string,
-		options: { selector?: string; strictText?: boolean; timeout?: number } = {},
+		options: SelectorOptions = {},
 	): Promise<boolean> {
 		return this.waitForSelector(options.selector, {
+			...options,
 			text,
 			strictText: options.strictText ?? true,
-			timeout: options.timeout,
 		});
 	}
 
-	async click(
-		selector?: string,
-		options: {
-			timeout?: number;
-			text?: string;
-			strictText?: boolean | string;
-		} = {},
-	): Promise<void> {
+	async click(selector?: string, options: SelectorOptions = {}): Promise<void> {
 		await this.init();
 		await this.waitForSelector(selector, options);
-		const success = await this.evaluate(
-			(sel, text, strictText) => {
-				let targetText = text;
-				let isStrict = false;
+		const matchOpts = this.serializeMatchOptions(options);
 
-				if (typeof strictText === "string") {
-					targetText = strictText;
+		const success = await this.evaluate(
+			(sel, opts) => {
+				let s = sel?.trim() || "";
+				let targetText = opts.text;
+				let isStrict = false;
+				let ignoreCase = Boolean(opts.ignoreCase);
+				let regex = opts.regex;
+				let regexFlags = opts.regexFlags || "";
+				let startsWith = opts.startsWith;
+				let endsWith = opts.endsWith;
+				const normalizeWhitespace = opts.normalizeWhitespace !== false;
+
+				if (typeof opts.strictText === "string") {
+					targetText = opts.strictText;
 					isStrict = true;
-				} else if (strictText === true) {
+				} else if (opts.strictText === true) {
 					isStrict = true;
-				} else if (text && strictText !== false) {
+				} else if (opts.text && opts.strictText !== false) {
 					isStrict = true;
 				}
 
-				let s = sel?.trim() || "";
 				if (s) {
-					const strictQuotedMatch = s.match(/^text\s*=\s*["']([^"']+)["']$/i);
-					if (strictQuotedMatch) {
-						targetText = strictQuotedMatch[1];
+					const flaggedStrictMatch = s.match(
+						/^text\/([a-z]+)\s*=\s*["']([^"']+)["']$/i,
+					);
+					if (flaggedStrictMatch) {
+						targetText = flaggedStrictMatch[2];
 						isStrict = true;
+						if (flaggedStrictMatch[1].toLowerCase().includes("i"))
+							ignoreCase = true;
 						s = "";
 					} else {
-						const textMatch = s.match(/^text\s*=\s*(.+)$/i);
-						if (textMatch) {
-							targetText = textMatch[1]?.trim();
-							isStrict = strictText !== false;
+						const strictQuotedMatch = s.match(/^text\s*=\s*["']([^"']+)["']$/i);
+						if (strictQuotedMatch) {
+							targetText = strictQuotedMatch[1];
+							isStrict = true;
 							s = "";
 						} else {
-							const textIsMatch = s.match(
-								/^(.*?):text-is\s*\(\s*["']([^"']+)["']\s*\)$/i,
-							);
-							if (textIsMatch) {
-								s = textIsMatch[1]?.trim() || "";
-								targetText = textIsMatch[2];
-								isStrict = true;
+							const regexMatch = s.match(/^text\s*=\s*\/(.+)\/([a-z]*)$/i);
+							if (regexMatch) {
+								regex = regexMatch[1];
+								regexFlags = regexMatch[2];
+								s = "";
 							} else {
-								const hasTextMatch = s.match(
-									/^(.*?):(has-text|contains)\s*\(\s*["']([^"']+)["']\s*\)$/i,
-								);
-								if (hasTextMatch) {
-									s = hasTextMatch[1]?.trim() || "";
-									targetText = hasTextMatch[3];
-									isStrict = false;
+								const textMatch = s.match(/^text\s*=\s*(.+)$/i);
+								if (textMatch) {
+									targetText = textMatch[1]?.trim();
+									isStrict = opts.strictText !== false;
+									s = "";
+								} else {
+									const textMatches = s.match(
+										/^(.*?):text-matches\s*\(\s*["']([^"']+)["'](?:\s*,\s*["']([a-z]*)["'])?\s*\)$/i,
+									);
+									if (textMatches) {
+										s = textMatches[1]?.trim() || "";
+										regex = textMatches[2];
+										regexFlags = textMatches[3] || (ignoreCase ? "i" : "");
+									} else {
+										const textIsMatch = s.match(
+											/^(.*?):text-is\s*\(\s*["']([^"']+)["'](?:\s*,\s*["']?([a-z]*)["']?)?\s*\)$/i,
+										);
+										if (textIsMatch) {
+											s = textIsMatch[1]?.trim() || "";
+											targetText = textIsMatch[2];
+											isStrict = true;
+											if (textIsMatch[3]?.toLowerCase().includes("i"))
+												ignoreCase = true;
+										} else {
+											const startsWithMatch = s.match(
+												/^(.*?):starts-with\s*\(\s*["']([^"']+)["'](?:\s*,\s*["']?([a-z]*)["']?)?\s*\)$/i,
+											);
+											if (startsWithMatch) {
+												s = startsWithMatch[1]?.trim() || "";
+												startsWith = startsWithMatch[2];
+												if (startsWithMatch[3]?.toLowerCase().includes("i"))
+													ignoreCase = true;
+											} else {
+												const endsWithMatch = s.match(
+													/^(.*?):ends-with\s*\(\s*["']([^"']+)["'](?:\s*,\s*["']?([a-z]*)["']?)?\s*\)$/i,
+												);
+												if (endsWithMatch) {
+													s = endsWithMatch[1]?.trim() || "";
+													endsWith = endsWithMatch[2];
+													if (endsWithMatch[3]?.toLowerCase().includes("i"))
+														ignoreCase = true;
+												} else {
+													const hasTextMatch = s.match(
+														/^(.*?):(has-text|contains)\s*\(\s*["']([^"']+)["'](?:\s*,\s*["']?([a-z]*)["']?)?\s*\)$/i,
+													);
+													if (hasTextMatch) {
+														s = hasTextMatch[1]?.trim() || "";
+														targetText = hasTextMatch[3];
+														isStrict = false;
+														if (hasTextMatch[4]?.toLowerCase().includes("i"))
+															ignoreCase = true;
+													}
+												}
+											}
+										}
+									}
 								}
 							}
 						}
@@ -343,14 +548,20 @@ export class Page {
 							document.querySelectorAll(s),
 						) as HTMLElement[];
 					} catch {
-						if (!targetText) {
+						if (!targetText && !regex && !startsWith && !endsWith) {
 							targetText = s;
-							isStrict = strictText !== false;
+							isStrict = opts.strictText !== false;
 						}
 					}
 				}
 
-				if (candidates.length === 0 && targetText) {
+				const hasTextCheck =
+					Boolean(targetText !== undefined && targetText !== "") ||
+					Boolean(regex) ||
+					Boolean(startsWith) ||
+					Boolean(endsWith);
+
+				if (candidates.length === 0 && hasTextCheck) {
 					candidates = Array.from(
 						document.querySelectorAll(
 							"button, a, input, textarea, select, label, summary, [role='button'], [role='link'], [role='tab'], [role='menuitem'], [role='option'], [tabindex], h1, h2, h3, h4, h5, h6, p, span, div, li, td, th, *",
@@ -358,10 +569,38 @@ export class Page {
 					) as HTMLElement[];
 				}
 
+				const normalize = (str: any) => {
+					if (str === null || str === undefined) return "";
+					let res = String(str);
+					if (normalizeWhitespace) {
+						res = res.replace(/\s+/g, " ");
+					}
+					return res.trim();
+				};
+
+				let regexObj: RegExp | null = null;
+				if (regex) {
+					try {
+						regexObj = new RegExp(regex, regexFlags || (ignoreCase ? "i" : ""));
+					} catch {}
+				}
+
+				const targetNorm = normalize(targetText);
+				const targetCased = ignoreCase ? targetNorm.toLowerCase() : targetNorm;
+				const startsWithNorm = startsWith ? normalize(startsWith) : null;
+				const startsWithCased =
+					startsWithNorm && ignoreCase
+						? startsWithNorm.toLowerCase()
+						: startsWithNorm;
+				const endsWithNorm = endsWith ? normalize(endsWith) : null;
+				const endsWithCased =
+					endsWithNorm && ignoreCase
+						? endsWithNorm.toLowerCase()
+						: endsWithNorm;
+
 				let targetEl: HTMLElement | null = null;
 
-				if (targetText !== undefined && targetText !== "") {
-					const targetNorm = targetText.trim();
+				if (hasTextCheck) {
 					const matched: {
 						el: HTMLElement;
 						depth: number;
@@ -371,43 +610,62 @@ export class Page {
 
 					for (const el of candidates) {
 						if (el.closest && el.closest("#__cdp_recorder_hud__")) continue;
-						const inner = el.innerText?.trim() ?? "";
-						const content = el.textContent?.trim() ?? "";
+						const inner = normalize(el.innerText);
+						const content = normalize(el.textContent);
 						const val =
 							"value" in el && typeof (el as any).value === "string"
-								? (el as any).value.trim()
+								? normalize((el as any).value)
 								: "";
-						const aria = el.getAttribute("aria-label")?.trim() ?? "";
-						const placeholder = el.getAttribute("placeholder")?.trim() ?? "";
-						const title = el.getAttribute("title")?.trim() ?? "";
+						const aria = normalize(el.getAttribute("aria-label"));
+						const placeholder = normalize(el.getAttribute("placeholder"));
+						const title = normalize(el.getAttribute("title"));
+						const alt = normalize(el.getAttribute("alt"));
 
+						const values = [
+							inner,
+							content,
+							val,
+							aria,
+							placeholder,
+							title,
+							alt,
+						].filter(Boolean);
 						let isMatch = false;
 						let isDirectMatch = false;
 
-						if (isStrict) {
-							if (
-								inner === targetNorm ||
-								content === targetNorm ||
-								val === targetNorm ||
-								aria === targetNorm ||
-								placeholder === targetNorm ||
-								title === targetNorm
-							) {
-								isMatch = true;
-								isDirectMatch = true;
-							}
-						} else {
-							if (
-								inner.includes(targetNorm) ||
-								content.includes(targetNorm) ||
-								val.includes(targetNorm) ||
-								aria.includes(targetNorm) ||
-								placeholder.includes(targetNorm) ||
-								title.includes(targetNorm)
-							) {
-								isMatch = true;
-								if (inner === targetNorm || content === targetNorm) {
+						for (const rawV of values) {
+							const v = ignoreCase ? rawV.toLowerCase() : rawV;
+							if (regexObj) {
+								if (regexObj.test(rawV)) {
+									isMatch = true;
 									isDirectMatch = true;
+									break;
+								}
+							} else if (startsWithCased !== null) {
+								if (v.startsWith(startsWithCased)) {
+									isMatch = true;
+									if (v === startsWithCased) isDirectMatch = true;
+									break;
+								}
+							} else if (endsWithCased !== null) {
+								if (v.endsWith(endsWithCased)) {
+									isMatch = true;
+									if (v === endsWithCased) isDirectMatch = true;
+									break;
+								}
+							} else if (targetNorm !== "") {
+								if (isStrict) {
+									if (v === targetCased) {
+										isMatch = true;
+										isDirectMatch = true;
+										break;
+									}
+								} else {
+									if (v.includes(targetCased)) {
+										isMatch = true;
+										if (v === targetCased) isDirectMatch = true;
+										break;
+									}
 								}
 							}
 						}
@@ -442,58 +700,62 @@ export class Page {
 				return true;
 			},
 			selector,
-			options.text,
-			options.strictText,
+			matchOpts,
 		);
 
 		if (!success) {
 			throw new Error(
-				`Could not click element: ${selector ? `"${selector}"` : ""}${options.text || options.strictText ? ` with text "${options.strictText || options.text}"` : ""}`,
+				`Could not click element: ${selector ? `"${selector}"` : ""}${options.text || options.strictText ? ` with text "${options.strictText || options.text}"` : ""}${options.regex ? ` matching /${options.regex}/` : ""}`,
 			);
 		}
 	}
 
 	async clickByText(
 		text: string,
-		options: { selector?: string; strictText?: boolean; timeout?: number } = {},
+		options: SelectorOptions = {},
 	): Promise<void> {
 		return this.click(options.selector, {
+			...options,
 			text,
 			strictText: options.strictText ?? true,
-			timeout: options.timeout,
 		});
 	}
 
 	async type(
 		selector?: string,
 		text = "",
-		options: {
-			clearFirst?: boolean;
-			timeout?: number;
-			targetText?: string;
-			strictText?: boolean | string;
-		} = {},
+		options: TypeOptions = {},
 	): Promise<void> {
 		await this.init();
+		const matchOpts = this.serializeMatchOptions({
+			...options,
+			text: options.targetText || options.text,
+		});
+
 		await this.waitForSelector(selector, {
-			text: options.targetText,
-			strictText: options.strictText,
-			timeout: options.timeout,
+			...options,
+			text: options.targetText || options.text,
 		});
 
 		const success = await this.evaluate(
-			(sel, val, clear, targetText, strictText) => {
-				let targetTextNorm = targetText;
+			(sel, val, clear, opts) => {
+				const s = sel?.trim() || "";
+				let targetText = opts.text;
 				let isStrict = false;
+				const ignoreCase = Boolean(opts.ignoreCase);
+				const regex = opts.regex;
+				const regexFlags = opts.regexFlags || "";
+				const startsWith = opts.startsWith;
+				const endsWith = opts.endsWith;
+				const normalizeWhitespace = opts.normalizeWhitespace !== false;
 
-				if (typeof strictText === "string") {
-					targetTextNorm = strictText;
+				if (typeof opts.strictText === "string") {
+					targetText = opts.strictText;
 					isStrict = true;
-				} else if (strictText === true) {
+				} else if (opts.strictText === true) {
 					isStrict = true;
 				}
 
-				const s = sel?.trim() || "";
 				let candidates: HTMLElement[] = [];
 				if (s) {
 					try {
@@ -511,31 +773,88 @@ export class Page {
 					) as HTMLElement[];
 				}
 
+				const normalize = (str: any) => {
+					if (str === null || str === undefined) return "";
+					let res = String(str);
+					if (normalizeWhitespace) {
+						res = res.replace(/\s+/g, " ");
+					}
+					return res.trim();
+				};
+
 				let targetInput: HTMLElement | null = null;
+				const hasTextCheck =
+					Boolean(targetText !== undefined && targetText !== "") ||
+					Boolean(regex) ||
+					Boolean(startsWith) ||
+					Boolean(endsWith);
 
-				if (targetTextNorm) {
-					const t = targetTextNorm.trim();
+				let regexObj: RegExp | null = null;
+				if (regex) {
+					try {
+						regexObj = new RegExp(regex, regexFlags || (ignoreCase ? "i" : ""));
+					} catch {}
+				}
+
+				const targetNorm = normalize(targetText);
+				const targetCased = ignoreCase ? targetNorm.toLowerCase() : targetNorm;
+				const startsWithNorm = startsWith ? normalize(startsWith) : null;
+				const startsWithCased =
+					startsWithNorm && ignoreCase
+						? startsWithNorm.toLowerCase()
+						: startsWithNorm;
+				const endsWithNorm = endsWith ? normalize(endsWith) : null;
+				const endsWithCased =
+					endsWithNorm && ignoreCase
+						? endsWithNorm.toLowerCase()
+						: endsWithNorm;
+
+				if (hasTextCheck) {
 					for (const el of candidates) {
-						const placeholder = el.getAttribute("placeholder")?.trim() ?? "";
-						const aria = el.getAttribute("aria-label")?.trim() ?? "";
-						const name = el.getAttribute("name")?.trim() ?? "";
-						const id = el.id ?? "";
+						const placeholder = normalize(el.getAttribute("placeholder"));
+						const aria = normalize(el.getAttribute("aria-label"));
+						const name = normalize(el.getAttribute("name"));
+						const id = normalize(el.id);
+						const label = normalize(el.getAttribute("title"));
 
-						if (isStrict) {
-							if (placeholder === t || aria === t || name === t || id === t) {
-								targetInput = el;
-								break;
+						const values = [placeholder, aria, name, id, label].filter(Boolean);
+						let isMatch = false;
+
+						for (const rawV of values) {
+							const v = ignoreCase ? rawV.toLowerCase() : rawV;
+							if (regexObj) {
+								if (regexObj.test(rawV)) {
+									isMatch = true;
+									break;
+								}
+							} else if (startsWithCased !== null) {
+								if (v.startsWith(startsWithCased)) {
+									isMatch = true;
+									break;
+								}
+							} else if (endsWithCased !== null) {
+								if (v.endsWith(endsWithCased)) {
+									isMatch = true;
+									break;
+								}
+							} else if (targetNorm !== "") {
+								if (isStrict) {
+									if (v === targetCased) {
+										isMatch = true;
+										break;
+									}
+								} else {
+									if (v.includes(targetCased)) {
+										isMatch = true;
+										break;
+									}
+								}
 							}
-						} else {
-							if (
-								placeholder.includes(t) ||
-								aria.includes(t) ||
-								name.includes(t) ||
-								id.includes(t)
-							) {
-								targetInput = el;
-								break;
-							}
+						}
+
+						if (isMatch) {
+							targetInput = el;
+							break;
 						}
 					}
 				}
@@ -564,8 +883,7 @@ export class Page {
 			selector,
 			text,
 			options.clearFirst,
-			options.targetText,
-			options.strictText,
+			matchOpts,
 		);
 
 		if (!success) {
@@ -591,46 +909,94 @@ export class Page {
 
 	async getMultipleText(
 		selector: string,
-		options: { text?: string; strictText?: boolean | string } = {},
+		options: TextMatchOptions = {},
 	): Promise<string[]> {
 		await this.init();
+		const matchOpts = this.serializeMatchOptions(options);
+
 		return this.evaluate(
-			(sel, targetText, isStrict) => {
+			(sel, opts) => {
+				const normalizeWhitespace = opts.normalizeWhitespace !== false;
+				const normalize = (str: any) => {
+					if (str === null || str === undefined) return "";
+					let res = String(str);
+					if (normalizeWhitespace) {
+						res = res.replace(/\s+/g, " ");
+					}
+					return res.trim();
+				};
+
 				const elements = Array.from(document.querySelectorAll(sel));
+				const ignoreCase = Boolean(opts.ignoreCase);
+				const isStrict = opts.strictText !== false;
+				const targetNorm = normalize(opts.text || opts.strictText);
+				const targetCased = ignoreCase ? targetNorm.toLowerCase() : targetNorm;
+
+				let regexObj: RegExp | null = null;
+				if (opts.regex) {
+					try {
+						regexObj = new RegExp(
+							opts.regex,
+							opts.regexFlags || (ignoreCase ? "i" : ""),
+						);
+					} catch {}
+				}
+
 				return elements
 					.filter((el) => {
-						if (targetText === undefined || targetText === "") return true;
-						const text = (el.textContent || "").trim();
-						return isStrict
-							? text === String(targetText).trim()
-							: text.includes(String(targetText).trim());
+						if (!targetNorm && !regexObj && !opts.startsWith && !opts.endsWith)
+							return true;
+						const rawTxt = normalize(el.textContent || el.innerText || "");
+						const txt = ignoreCase ? rawTxt.toLowerCase() : rawTxt;
+
+						if (regexObj) return regexObj.test(rawTxt);
+						if (opts.startsWith) {
+							const sw = ignoreCase
+								? normalize(opts.startsWith).toLowerCase()
+								: normalize(opts.startsWith);
+							return txt.startsWith(sw);
+						}
+						if (opts.endsWith) {
+							const ew = ignoreCase
+								? normalize(opts.endsWith).toLowerCase()
+								: normalize(opts.endsWith);
+							return txt.endsWith(ew);
+						}
+						return isStrict ? txt === targetCased : txt.includes(targetCased);
 					})
-					.map((el) => (el.textContent || "").trim());
+					.map((el) => normalize(el.textContent || el.innerText || ""));
 			},
 			selector,
-			options.text,
-			options.strictText,
+			matchOpts,
 		);
 	}
 
 	async getText(
 		selector?: string,
-		options: { text?: string; strictText?: boolean | string } = {},
+		options: TextMatchOptions = {},
 	): Promise<string | null> {
 		await this.init();
-		return this.evaluate(
-			(sel, text, strictText) => {
-				let targetText = text;
-				let isStrict = false;
+		const matchOpts = this.serializeMatchOptions(options);
 
-				if (typeof strictText === "string") {
-					targetText = strictText;
+		return this.evaluate(
+			(sel, opts) => {
+				let s = sel?.trim() || "";
+				let targetText = opts.text;
+				let isStrict = false;
+				const ignoreCase = Boolean(opts.ignoreCase);
+				const regex = opts.regex;
+				const regexFlags = opts.regexFlags || "";
+				const startsWith = opts.startsWith;
+				const endsWith = opts.endsWith;
+				const normalizeWhitespace = opts.normalizeWhitespace !== false;
+
+				if (typeof opts.strictText === "string") {
+					targetText = opts.strictText;
 					isStrict = true;
-				} else if (strictText === true) {
+				} else if (opts.strictText === true) {
 					isStrict = true;
 				}
 
-				let s = sel?.trim() || "";
 				if (s) {
 					const strictQuotedMatch = s.match(/^text\s*=\s*["']([^"']+)["']$/i);
 					if (strictQuotedMatch) {
@@ -649,7 +1015,13 @@ export class Page {
 					} catch {}
 				}
 
-				if (candidates.length === 0 && targetText) {
+				const hasTextCheck =
+					Boolean(targetText !== undefined && targetText !== "") ||
+					Boolean(regex) ||
+					Boolean(startsWith) ||
+					Boolean(endsWith);
+
+				if (candidates.length === 0 && hasTextCheck) {
 					candidates = Array.from(
 						document.querySelectorAll(
 							"button, a, input, label, h1, h2, h3, h4, h5, h6, p, span, div, li, td, th, *",
@@ -657,54 +1029,108 @@ export class Page {
 					) as HTMLElement[];
 				}
 
-				if (targetText !== undefined && targetText !== "") {
-					const targetNorm = targetText.trim();
+				const normalize = (str: any) => {
+					if (str === null || str === undefined) return "";
+					let res = String(str);
+					if (normalizeWhitespace) {
+						res = res.replace(/\s+/g, " ");
+					}
+					return res.trim();
+				};
+
+				let regexObj: RegExp | null = null;
+				if (regex) {
+					try {
+						regexObj = new RegExp(regex, regexFlags || (ignoreCase ? "i" : ""));
+					} catch {}
+				}
+
+				const targetNorm = normalize(targetText);
+				const targetCased = ignoreCase ? targetNorm.toLowerCase() : targetNorm;
+				const startsWithNorm = startsWith ? normalize(startsWith) : null;
+				const startsWithCased =
+					startsWithNorm && ignoreCase
+						? startsWithNorm.toLowerCase()
+						: startsWithNorm;
+				const endsWithNorm = endsWith ? normalize(endsWith) : null;
+				const endsWithCased =
+					endsWithNorm && ignoreCase
+						? endsWithNorm.toLowerCase()
+						: endsWithNorm;
+
+				if (hasTextCheck) {
 					for (const el of candidates) {
 						if (el.closest && el.closest("#__cdp_recorder_hud__")) continue;
-						const inner = el.innerText?.trim() ?? "";
-						const content = el.textContent?.trim() ?? "";
-						if (isStrict) {
-							if (inner === targetNorm || content === targetNorm) {
-								return inner || content;
-							}
-						} else {
-							if (inner.includes(targetNorm) || content.includes(targetNorm)) {
-								return inner || content;
+						const rawInner = normalize(el.innerText);
+						const rawContent = normalize(el.textContent);
+						const rawVal =
+							"value" in el && typeof (el as any).value === "string"
+								? normalize((el as any).value)
+								: "";
+						const rawAria = normalize(el.getAttribute("aria-label"));
+
+						const values = [rawInner, rawContent, rawVal, rawAria].filter(
+							Boolean,
+						);
+						for (const rawV of values) {
+							const v = ignoreCase ? rawV.toLowerCase() : rawV;
+							if (regexObj) {
+								if (regexObj.test(rawV)) return rawInner || rawContent || rawV;
+							} else if (startsWithCased !== null) {
+								if (v.startsWith(startsWithCased))
+									return rawInner || rawContent || rawV;
+							} else if (endsWithCased !== null) {
+								if (v.endsWith(endsWithCased))
+									return rawInner || rawContent || rawV;
+							} else if (targetNorm !== "") {
+								if (isStrict) {
+									if (v === targetCased) return rawInner || rawContent || rawV;
+								} else {
+									if (v.includes(targetCased))
+										return rawInner || rawContent || rawV;
+								}
 							}
 						}
 					}
 				} else if (candidates.length > 0) {
 					const el = candidates[0]!;
-					return el.innerText?.trim() || el.textContent?.trim() || null;
+					return normalize(el.innerText || el.textContent || "");
 				}
 
 				return null;
 			},
 			selector,
-			options.text,
-			options.strictText,
+			matchOpts,
 		);
 	}
 
 	async getAttribute(
 		selector: string | undefined,
 		attributeName: string,
-		options: { text?: string; strictText?: boolean | string } = {},
+		options: TextMatchOptions = {},
 	): Promise<string | null> {
 		await this.init();
-		return this.evaluate(
-			(sel, attr, text, strictText) => {
-				let targetText = text;
-				let isStrict = false;
+		const matchOpts = this.serializeMatchOptions(options);
 
-				if (typeof strictText === "string") {
-					targetText = strictText;
+		return this.evaluate(
+			(sel, attr, opts) => {
+				const s = sel?.trim() || "";
+				let targetText = opts.text;
+				let isStrict = false;
+				const ignoreCase = Boolean(opts.ignoreCase);
+				const regex = opts.regex;
+				const regexFlags = opts.regexFlags || "";
+				const startsWith = opts.startsWith;
+				const endsWith = opts.endsWith;
+				const normalizeWhitespace = opts.normalizeWhitespace !== false;
+
+				if (typeof opts.strictText === "string") {
+					targetText = opts.strictText;
 					isStrict = true;
-				} else if (strictText === true) {
+				} else if (opts.strictText === true) {
 					isStrict = true;
 				}
 
-				const s = sel?.trim() || "";
 				let candidates: HTMLElement[] = [];
 				if (s) {
 					try {
@@ -714,7 +1140,13 @@ export class Page {
 					} catch {}
 				}
 
-				if (candidates.length === 0 && targetText) {
+				const hasTextCheck =
+					Boolean(targetText !== undefined && targetText !== "") ||
+					Boolean(regex) ||
+					Boolean(startsWith) ||
+					Boolean(endsWith);
+
+				if (candidates.length === 0 && hasTextCheck) {
 					candidates = Array.from(
 						document.querySelectorAll(
 							"button, a, input, img, label, h1, h2, h3, h4, h5, h6, p, span, div, *",
@@ -722,19 +1154,63 @@ export class Page {
 					) as HTMLElement[];
 				}
 
-				if (targetText !== undefined && targetText !== "") {
-					const targetNorm = targetText.trim();
+				const normalize = (str: any) => {
+					if (str === null || str === undefined) return "";
+					let res = String(str);
+					if (normalizeWhitespace) {
+						res = res.replace(/\s+/g, " ");
+					}
+					return res.trim();
+				};
+
+				let regexObj: RegExp | null = null;
+				if (regex) {
+					try {
+						regexObj = new RegExp(regex, regexFlags || (ignoreCase ? "i" : ""));
+					} catch {}
+				}
+
+				const targetNorm = normalize(targetText);
+				const targetCased = ignoreCase ? targetNorm.toLowerCase() : targetNorm;
+				const startsWithNorm = startsWith ? normalize(startsWith) : null;
+				const startsWithCased =
+					startsWithNorm && ignoreCase
+						? startsWithNorm.toLowerCase()
+						: startsWithNorm;
+				const endsWithNorm = endsWith ? normalize(endsWith) : null;
+				const endsWithCased =
+					endsWithNorm && ignoreCase
+						? endsWithNorm.toLowerCase()
+						: endsWithNorm;
+
+				if (hasTextCheck) {
 					for (const el of candidates) {
 						if (el.closest && el.closest("#__cdp_recorder_hud__")) continue;
-						const inner = el.innerText?.trim() ?? "";
-						const content = el.textContent?.trim() ?? "";
-						if (isStrict) {
-							if (inner === targetNorm || content === targetNorm) {
-								return el.getAttribute(attr);
-							}
-						} else {
-							if (inner.includes(targetNorm) || content.includes(targetNorm)) {
-								return el.getAttribute(attr);
+						const rawInner = normalize(el.innerText);
+						const rawContent = normalize(el.textContent);
+						const rawVal =
+							"value" in el && typeof (el as any).value === "string"
+								? normalize((el as any).value)
+								: "";
+						const rawAria = normalize(el.getAttribute("aria-label"));
+
+						const values = [rawInner, rawContent, rawVal, rawAria].filter(
+							Boolean,
+						);
+						for (const rawV of values) {
+							const v = ignoreCase ? rawV.toLowerCase() : rawV;
+							if (regexObj) {
+								if (regexObj.test(rawV)) return el.getAttribute(attr);
+							} else if (startsWithCased !== null) {
+								if (v.startsWith(startsWithCased)) return el.getAttribute(attr);
+							} else if (endsWithCased !== null) {
+								if (v.endsWith(endsWithCased)) return el.getAttribute(attr);
+							} else if (targetNorm !== "") {
+								if (isStrict) {
+									if (v === targetCased) return el.getAttribute(attr);
+								} else {
+									if (v.includes(targetCased)) return el.getAttribute(attr);
+								}
 							}
 						}
 					}
@@ -746,21 +1222,13 @@ export class Page {
 			},
 			selector,
 			attributeName,
-			options.text,
-			options.strictText,
+			matchOpts,
 		);
 	}
 
 	async assertText(
 		selector: string | undefined,
-		options: {
-			equals?: string;
-			contains?: string;
-			strictText?: boolean | string;
-			text?: string;
-			attribute?: string;
-			timeout?: number;
-		} = {},
+		options: AssertOptions = {},
 	): Promise<string> {
 		await this.init();
 		const timeout = options.timeout || 10000;
@@ -772,32 +1240,77 @@ export class Page {
 				? options.strictText
 				: options.equals;
 		const expectedContains = options.contains;
+		const expectedStartsWith = options.startsWith;
+		const expectedEndsWith = options.endsWith;
+		const expectedMatches = options.matches || options.regex;
+		const ignoreCase = Boolean(options.ignoreCase);
+		const normalizeWhitespace = options.normalizeWhitespace !== false;
+
+		const normalize = (str: string | null) => {
+			if (str === null || str === undefined) return null;
+			let s = String(str);
+			if (normalizeWhitespace) {
+				s = s.replace(/\s+/g, " ");
+			}
+			return s.trim();
+		};
+
+		let regexObj: RegExp | null = null;
+		if (expectedMatches) {
+			if (expectedMatches instanceof RegExp) {
+				regexObj = expectedMatches;
+			} else {
+				regexObj = new RegExp(expectedMatches, ignoreCase ? "i" : "");
+			}
+		}
 
 		while (Date.now() - startTime < timeout) {
-			const actual =
+			const rawActual =
 				options.attribute &&
 				options.attribute !== "text" &&
 				options.attribute !== "innerText"
-					? await this.getAttribute(selector, options.attribute, {
-							text: options.text,
-						})
-					: await this.getText(selector, {
-							text: options.text,
-						});
+					? await this.getAttribute(selector, options.attribute, options)
+					: await this.getText(selector, options);
 
+			const actual = normalize(rawActual);
 			lastActual = actual;
 
 			if (actual !== null) {
 				let pass = true;
-				if (expectedEquals !== undefined && actual !== expectedEquals) {
-					pass = false;
+				const compActual = ignoreCase ? actual.toLowerCase() : actual;
+
+				if (expectedEquals !== undefined) {
+					const exp = ignoreCase
+						? normalize(expectedEquals)!.toLowerCase()
+						: normalize(expectedEquals)!;
+					if (compActual !== exp) pass = false;
 				}
-				if (
-					expectedContains !== undefined &&
-					!actual.includes(expectedContains)
-				) {
-					pass = false;
+
+				if (expectedContains !== undefined) {
+					const exp = ignoreCase
+						? normalize(expectedContains)!.toLowerCase()
+						: normalize(expectedContains)!;
+					if (!compActual.includes(exp)) pass = false;
 				}
+
+				if (expectedStartsWith !== undefined) {
+					const exp = ignoreCase
+						? normalize(expectedStartsWith)!.toLowerCase()
+						: normalize(expectedStartsWith)!;
+					if (!compActual.startsWith(exp)) pass = false;
+				}
+
+				if (expectedEndsWith !== undefined) {
+					const exp = ignoreCase
+						? normalize(expectedEndsWith)!.toLowerCase()
+						: normalize(expectedEndsWith)!;
+					if (!compActual.endsWith(exp)) pass = false;
+				}
+
+				if (regexObj !== null) {
+					if (!regexObj.test(actual)) pass = false;
+				}
+
 				if (pass) return actual;
 			}
 			await new Promise((r) => setTimeout(r, 50));
@@ -808,17 +1321,29 @@ export class Page {
 				`Assertion failed: element "${selector || options.text}" not found`,
 			);
 		}
-		if (expectedEquals !== undefined && lastActual !== expectedEquals) {
+		if (expectedEquals !== undefined) {
 			throw new Error(
-				`Assertion failed: Expected strict text "${expectedEquals}", but got "${lastActual}" at "${selector || options.text}"`,
+				`Assertion failed: Expected strict text "${expectedEquals}" (ignoreCase=${ignoreCase}), but got "${lastActual}" at "${selector || options.text}"`,
 			);
 		}
-		if (
-			expectedContains !== undefined &&
-			!lastActual.includes(expectedContains)
-		) {
+		if (expectedContains !== undefined) {
 			throw new Error(
-				`Assertion failed: Expected text containing "${expectedContains}", but got "${lastActual}" at "${selector || options.text}"`,
+				`Assertion failed: Expected text containing "${expectedContains}" (ignoreCase=${ignoreCase}), but got "${lastActual}" at "${selector || options.text}"`,
+			);
+		}
+		if (expectedStartsWith !== undefined) {
+			throw new Error(
+				`Assertion failed: Expected text starting with "${expectedStartsWith}" (ignoreCase=${ignoreCase}), but got "${lastActual}" at "${selector || options.text}"`,
+			);
+		}
+		if (expectedEndsWith !== undefined) {
+			throw new Error(
+				`Assertion failed: Expected text ending with "${expectedEndsWith}" (ignoreCase=${ignoreCase}), but got "${lastActual}" at "${selector || options.text}"`,
+			);
+		}
+		if (regexObj !== null) {
+			throw new Error(
+				`Assertion failed: Expected text matching ${regexObj.toString()}, but got "${lastActual}" at "${selector || options.text}"`,
 			);
 		}
 		return lastActual;

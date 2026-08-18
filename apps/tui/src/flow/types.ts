@@ -18,6 +18,11 @@ export interface BaseStep {
 	action: FlowActionType;
 	text?: string;
 	strictText?: boolean | string;
+	ignoreCase?: boolean;
+	regex?: string;
+	startsWith?: string;
+	endsWith?: string;
+	normalizeWhitespace?: boolean;
 }
 
 export interface GotoStep extends BaseStep {
@@ -32,6 +37,11 @@ export interface ClickStep extends BaseStep {
 	selector?: string;
 	text?: string;
 	strictText?: boolean | string;
+	ignoreCase?: boolean;
+	regex?: string;
+	startsWith?: string;
+	endsWith?: string;
+	normalizeWhitespace?: boolean;
 	timeout?: number;
 }
 
@@ -41,6 +51,11 @@ export interface TypeStep extends BaseStep {
 	text: string;
 	targetText?: string;
 	strictText?: boolean | string;
+	ignoreCase?: boolean;
+	regex?: string;
+	startsWith?: string;
+	endsWith?: string;
+	normalizeWhitespace?: boolean;
 	clearFirst?: boolean;
 	timeout?: number;
 }
@@ -55,6 +70,11 @@ export interface WaitForSelectorStep extends BaseStep {
 	selector?: string;
 	text?: string;
 	strictText?: boolean | string;
+	ignoreCase?: boolean;
+	regex?: string;
+	startsWith?: string;
+	endsWith?: string;
+	normalizeWhitespace?: boolean;
 	timeout?: number;
 }
 
@@ -63,6 +83,11 @@ export interface ExtractStep extends BaseStep {
 	selector?: string;
 	text?: string;
 	strictText?: boolean | string;
+	ignoreCase?: boolean;
+	regex?: string;
+	startsWith?: string;
+	endsWith?: string;
+	normalizeWhitespace?: boolean;
 	as: string;
 	attribute?: string; // "text" (default) or "innerText", "href", "src", "value", etc.
 	all?: boolean; // if true, returns string[] of all matching elements
@@ -76,6 +101,8 @@ export interface ExtractMultipleStep extends BaseStep {
 	limit?: number;
 	fields: Record<string, string>; // e.g. { "title": "h2", "link": "a@href", "price": ".price" }
 	filterText?: string;
+	filterIgnoreCase?: boolean;
+	filterRegex?: string;
 }
 
 export interface ScreenshotStep extends BaseStep {
@@ -110,6 +137,11 @@ export interface AssertStep extends BaseStep {
 	strictText?: boolean | string;
 	equals?: string;
 	contains?: string;
+	startsWith?: string;
+	endsWith?: string;
+	matches?: string;
+	ignoreCase?: boolean;
+	normalizeWhitespace?: boolean;
 	attribute?: string;
 	timeout?: number;
 }

@@ -265,6 +265,11 @@ export class FlowRunner {
 				await page.click(selector, {
 					text,
 					strictText,
+					ignoreCase: s.ignoreCase,
+					regex: s.regex,
+					startsWith: s.startsWith,
+					endsWith: s.endsWith,
+					normalizeWhitespace: s.normalizeWhitespace,
 					timeout: s.timeout,
 				});
 				return text || selector || true;
@@ -288,6 +293,11 @@ export class FlowRunner {
 					timeout: s.timeout,
 					targetText,
 					strictText,
+					ignoreCase: s.ignoreCase,
+					regex: s.regex,
+					startsWith: s.startsWith,
+					endsWith: s.endsWith,
+					normalizeWhitespace: s.normalizeWhitespace,
 				});
 				return text;
 			}
@@ -316,6 +326,11 @@ export class FlowRunner {
 					timeout: s.timeout,
 					text,
 					strictText,
+					ignoreCase: s.ignoreCase,
+					regex: s.regex,
+					startsWith: s.startsWith,
+					endsWith: s.endsWith,
+					normalizeWhitespace: s.normalizeWhitespace,
 				});
 				return true;
 			}
@@ -337,46 +352,37 @@ export class FlowRunner {
 				const attribute = s.attribute || "text";
 
 				if (s.all) {
-					return page.evaluate(
-						(sel, attr, filterText, isStrict) => {
-							let elements: HTMLElement[] = [];
-							if (sel) {
-								elements = Array.from(
-									document.querySelectorAll(sel),
-								) as HTMLElement[];
-							} else {
-								elements = Array.from(
-									document.querySelectorAll("*"),
-								) as HTMLElement[];
-							}
-							if (filterText) {
-								const tNorm = filterText.trim();
-								elements = elements.filter((el) => {
-									const txt =
-										el.textContent?.trim() || el.innerText?.trim() || "";
-									return isStrict ? txt === tNorm : txt.includes(tNorm);
-								});
-							}
-							return elements.map((el) => {
-								if (attr === "text" || attr === "innerText")
-									return el.textContent?.trim() || el.innerText?.trim() || "";
-								return el.getAttribute(attr) || "";
-							});
-						},
-						selector,
-						attribute,
+					return page.getMultipleText(selector || "*", {
 						text,
-						strictText !== false,
-					);
+						strictText,
+						ignoreCase: s.ignoreCase,
+						regex: s.regex,
+						startsWith: s.startsWith,
+						endsWith: s.endsWith,
+						normalizeWhitespace: s.normalizeWhitespace,
+					});
 				}
 
 				if (attribute === "text" || attribute === "innerText") {
-					const val = await page.getText(selector, { text, strictText });
+					const val = await page.getText(selector, {
+						text,
+						strictText,
+						ignoreCase: s.ignoreCase,
+						regex: s.regex,
+						startsWith: s.startsWith,
+						endsWith: s.endsWith,
+						normalizeWhitespace: s.normalizeWhitespace,
+					});
 					return val;
 				}
 				const val = await page.getAttribute(selector, attribute, {
 					text,
 					strictText,
+					ignoreCase: s.ignoreCase,
+					regex: s.regex,
+					startsWith: s.startsWith,
+					endsWith: s.endsWith,
+					normalizeWhitespace: s.normalizeWhitespace,
 				});
 				return val;
 			}
@@ -392,17 +398,26 @@ export class FlowRunner {
 					: undefined;
 				const fields = s.fields;
 				const limit = s.limit || 100;
+				const filterIgnoreCase = Boolean(s.filterIgnoreCase);
+				const filterRegex = s.filterRegex;
 
 				return page.evaluate(
-					(cSel, fMap, maxItems, fText) => {
+					(cSel, fMap, maxItems, fText, fIgnore, fRegex) => {
 						let containers = Array.from(
 							document.querySelectorAll(cSel),
 						) as HTMLElement[];
-						if (fText) {
-							const tNorm = fText.trim();
+						if (fRegex) {
+							const r = new RegExp(fRegex, fIgnore ? "i" : "");
 							containers = containers.filter((c) =>
-								(c.textContent?.trim() || "").includes(tNorm),
+								r.test(c.textContent || ""),
 							);
+						} else if (fText) {
+							const tNorm = fText.trim();
+							const compT = fIgnore ? tNorm.toLowerCase() : tNorm;
+							containers = containers.filter((c) => {
+								const txt = c.textContent?.trim() || "";
+								return (fIgnore ? txt.toLowerCase() : txt).includes(compT);
+							});
 						}
 						containers = containers.slice(0, maxItems);
 						return containers.map((container) => {
@@ -428,6 +443,8 @@ export class FlowRunner {
 					fields,
 					limit,
 					filterText,
+					filterIgnoreCase,
+					filterRegex,
 				);
 			}
 
@@ -480,6 +497,15 @@ export class FlowRunner {
 				const contains = s.contains
 					? FlowRunner.interpolate(s.contains, ctx)
 					: undefined;
+				const startsWith = s.startsWith
+					? FlowRunner.interpolate(s.startsWith, ctx)
+					: undefined;
+				const endsWith = s.endsWith
+					? FlowRunner.interpolate(s.endsWith, ctx)
+					: undefined;
+				const matches = s.matches
+					? FlowRunner.interpolate(s.matches, ctx)
+					: undefined;
 				const strictText =
 					typeof s.strictText === "string"
 						? FlowRunner.interpolate(s.strictText, ctx)
@@ -494,6 +520,11 @@ export class FlowRunner {
 				const actual = await page.assertText(selector, {
 					equals: typeof strictText === "string" ? strictText : equals,
 					contains,
+					startsWith,
+					endsWith,
+					matches,
+					ignoreCase: s.ignoreCase,
+					normalizeWhitespace: s.normalizeWhitespace,
 					strictText,
 					text,
 					attribute: s.attribute,
