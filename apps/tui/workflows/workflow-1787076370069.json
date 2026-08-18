@@ -1,0 +1,28 @@
+{
+	"name": "workflow 1787076370069",
+	"description": "Recorded on 8/19/2026, 12:06:27 AM",
+	"variables": {},
+	"steps": [
+		{
+			"name": "Navigate to news.ycombinator.com",
+			"action": "goto",
+			"url": "https://news.ycombinator.com/"
+		},
+		{
+			"name": "Capture Screenshot at Step 2",
+			"action": "screenshot",
+			"path": "{{outputDir}}/screenshot-1787076377112.png"
+		},
+		{
+			"name": "Extract List \"extractedList\" from span.titleline",
+			"action": "extractMultiple",
+			"containerSelector": "span.titleline",
+			"as": "extractedList",
+			"limit": 20,
+			"fields": {
+				"title": "a, h1, h2, h3, .title, p",
+				"link": "a@href"
+			}
+		}
+	]
+}
