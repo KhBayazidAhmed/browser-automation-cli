@@ -55,19 +55,13 @@ export function findSystemChrome(): string {
 	);
 }
 
-export async function launchChrome(
-	options: LaunchOptions = {},
-): Promise<LaunchedChrome> {
+export async function launchChrome(options: LaunchOptions = {}): Promise<LaunchedChrome> {
 	const executablePath = options.executablePath || findSystemChrome();
-	const port =
-		options.port || Math.floor(Math.random() * (9999 - 9200 + 1)) + 9200;
+	const port = options.port || Math.floor(Math.random() * (9999 - 9200 + 1)) + 9200;
 	const isTempProfile = !options.userDataDir;
 	const userDataDir =
 		options.userDataDir ||
-		join(
-			tmpdir(),
-			`cdp-chrome-profile-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-		);
+		join(tmpdir(), `cdp-chrome-profile-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
 
 	if (!existsSync(userDataDir)) {
 		mkdirSync(userDataDir, { recursive: true });
@@ -126,9 +120,7 @@ export async function launchChrome(
 				rmSync(userDataDir, { recursive: true, force: true });
 			} catch {}
 		}
-		throw new Error(
-			`Failed to connect to Chrome CDP on port ${port} within timeout.`,
-		);
+		throw new Error(`Failed to connect to Chrome CDP on port ${port} within timeout.`);
 	}
 
 	return {

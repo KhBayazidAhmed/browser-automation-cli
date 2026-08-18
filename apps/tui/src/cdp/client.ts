@@ -71,9 +71,7 @@ export class CDPClient {
 				this.pendingRequests.delete(msg.id);
 				if (msg.error) {
 					pending.reject(
-						new Error(
-							`CDP Error in ${pending.method} (${msg.error.code}): ${msg.error.message}`,
-						),
+						new Error(`CDP Error in ${pending.method} (${msg.error.code}): ${msg.error.message}`),
 					);
 				} else {
 					pending.resolve(msg.result);
