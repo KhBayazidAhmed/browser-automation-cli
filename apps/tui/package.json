@@ -1,19 +1,31 @@
 {
-  "name": "tui",
-  "private": true,
-  "type": "module",
-  "module": "src/index.tsx",
-  "scripts": {
-    "dev": "bun run --watch src/index.ts",
-    "check-types": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@opentui/core": "^0.5.3"
-  },
-  "devDependencies": {
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
-  }
+	"name": "tui",
+	"private": true,
+	"type": "module",
+	"module": "src/index.tsx",
+	"scripts": {
+		"dev": "bun src/index.ts",
+		"flow": "bun src/index.ts flow",
+		"record": "bun src/index.ts record",
+		"test": "bun test tests",
+		"test:watch": "bun test --watch tests",
+		"test:headed": "HEADED=1 bun test tests",
+		"test:strict": "bun test tests/locators.test.ts tests/assertions.test.ts",
+		"test:flows": "bun test tests/flows.test.ts",
+		"repl": "bun src/index.ts repl",
+		"tasks": "bun src/index.ts tasks",
+		"task": "bun src/index.ts task",
+		"cleanup": "bun src/index.ts cleanup",
+		"check-types": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@clack/prompts": "^1.7.0",
+		"@opentui/core": "^0.5.3"
+	},
+	"devDependencies": {
+		"@types/bun": "latest"
+	},
+	"peerDependencies": {
+		"typescript": "^5"
+	}
 }
