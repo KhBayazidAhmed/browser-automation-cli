@@ -1,0 +1,3 @@
+{
+  "extends": "@browser-automation-cli/config/tsconfig.base.json"
+}
