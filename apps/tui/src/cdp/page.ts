@@ -81,7 +81,7 @@ export class Page {
 	}
 
 	async evaluate<T = unknown>(
-		expressionOrFn: string | ((...args: unknown[]) => unknown),
+		expressionOrFn: string | ((...args: any[]) => any),
 		...args: unknown[]
 	): Promise<T> {
 		await this.init();
@@ -92,9 +92,10 @@ export class Page {
 			expr = `(${expressionOrFn.toString()})(${argsJson})`;
 		} else {
 			const str = expressionOrFn.trim();
+			const firstLine = str.split("\n")[0] || "";
 			if (args.length > 0 || str.includes("arguments")) {
 				expr = `(function() {\n${str}\n})(${argsJson})`;
-			} else if (str.includes("return ") && !str.startsWith("(") && !str.startsWith("function")) {
+			} else if (str.startsWith("return ") || firstLine.trim().startsWith("return ")) {
 				expr = `(() => {\n${str}\n})()`;
 			} else {
 				expr = str;
@@ -202,5 +203,13 @@ export class Page {
 
 	async getMetrics(): Promise<Record<string, number>> {
 		return getPerformanceMetrics(this);
+	}
+
+	async close(): Promise<void> {
+		try {
+			await this.client.send("Target.closeTarget", { targetId: this.targetId });
+		} catch {
+			this.client.close();
+		}
 	}
 }

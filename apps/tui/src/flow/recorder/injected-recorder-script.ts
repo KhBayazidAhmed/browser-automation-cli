@@ -1,10 +1,14 @@
+import { ICONS } from "./hud-icons.js";
 import { HUD_STYLES } from "./hud-styles.js";
 import { HUD_HTML } from "./hud-template.js";
 import { INJECTED_DRAWER_RENDER_SRC } from "./injected-drawer-render.js";
 import { INJECTED_EVENT_RECORDER_SRC } from "./injected-event-recorder.js";
+import { INJECTED_WEBCAM_SRC } from "./injected-webcam.js";
 
 export const INJECTED_ADVANCED_RECORDER_SCRIPT = `
 (() => {
+  ${INJECTED_WEBCAM_SRC}
+
   if (window.__cdpRecorderInjected) {
     if (window.__cdpHydrate) window.__cdpHydrate();
     return;
@@ -33,63 +37,46 @@ export const INJECTED_ADVANCED_RECORDER_SCRIPT = `
   hudContainer.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:2147483647;margin:0;padding:0;font-family:system-ui,-apple-system,sans-serif;";
 
   const shadow = hudContainer.attachShadow({ mode: "open" });
-  shadow.innerHTML = \`<style>${HUD_STYLES}</style>${HUD_HTML}\`;
+  shadow.innerHTML = ${JSON.stringify(`<style>${HUD_STYLES}</style>${HUD_HTML}`)};
 
   function showToast(msg, isWarn = false) {
     const toast = shadow.getElementById("toast");
     if (!toast) return;
     toast.innerText = msg;
-    toast.style.borderColor = isWarn ? "#fbbf24" : "#10b981";
-    toast.style.color = isWarn ? "#fbbf24" : "#10b981";
+    toast.style.borderColor = isWarn ? "rgba(255, 255, 255, 0.2)" : "rgba(255, 255, 255, 0.12)";
+    toast.style.color = "#fafafa";
     toast.classList.add("show");
     setTimeout(() => toast.classList.remove("show"), 2200);
   }
 
   function updateBadge() {
-    const count = flowState.steps.length;
     const badgeText = shadow.getElementById("badge-text");
-    const badge = shadow.getElementById("badge");
-    const btnPause = shadow.getElementById("btn-pause");
-    const btnConfig = shadow.getElementById("btn-config");
-    const tabStepsCount = shadow.getElementById("tab-steps-count");
-    const tabVarsCount = shadow.getElementById("tab-vars-count");
-    const subtitle = shadow.getElementById("drawer-subtitle");
-
-    if (badgeText) badgeText.innerText = flowState.isPaused ? \`PAUSED (\${count})\` : \`REC (\${count})\`;
-    if (badge) badge.classList.toggle("paused", flowState.isPaused);
-    if (btnPause) {
-      btnPause.innerText = flowState.isPaused ? "▶️ Resume" : "⏸️ Pause";
-      btnPause.classList.toggle("active", flowState.isPaused);
-    }
-    if (btnConfig) {
-      btnConfig.innerText = \`⚙️ Config (\${count})\`;
-      btnConfig.classList.toggle("active", isDrawerOpen);
-    }
-    if (tabStepsCount) tabStepsCount.innerText = String(count);
-    if (tabVarsCount) tabVarsCount.innerText = String(Object.keys(flowState.variables).length);
-    if (subtitle) subtitle.innerText = \`Flow: \${flowState.name} • \${count} steps • \${Object.keys(flowState.variables).length} variables\`;
+    if (badgeText) badgeText.innerText = (flowState.isPaused ? "PAUSED (" : "REC (") + (flowState.steps || []).length + ")";
+    const configCount = shadow.getElementById("btn-config-count");
+    if (configCount) configCount.innerText = (flowState.steps || []).length;
   }
 
   ${INJECTED_DRAWER_RENDER_SRC}
 
-  const barWrapper = shadow.getElementById("bar-wrapper");
-  let isDragging = false, dragStartX = 0, dragStartY = 0, initialPosX = 0, initialPosY = 0, curPosX = 0, curPosY = 0, dragRafId = null;
+  let isDragging = false, dragStartX = 0, dragStartY = 0, initialPosX = 0, initialPosY = 0, curPosX = 0, curPosY = 0;
+  let dragRafId = null;
+  const bar = shadow.getElementById("bar");
+  const dragHandle = shadow.getElementById("drag-handle");
 
-  shadow.getElementById("drag-handle")?.addEventListener("mousedown", (e) => {
-    isDragging = true; dragStartX = e.clientX; dragStartY = e.clientY;
-    const rect = barWrapper.getBoundingClientRect();
-    initialPosX = rect.left; initialPosY = rect.top;
-    barWrapper.style.left = "0px"; barWrapper.style.top = "0px"; barWrapper.style.bottom = "auto";
-    barWrapper.style.transform = \`translate3d(\${initialPosX}px, \${initialPosY}px, 0)\`;
+  dragHandle?.addEventListener("mousedown", (e) => {
+    isDragging = true;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
     e.preventDefault();
   });
 
   document.addEventListener("mousemove", (e) => {
-    if (!isDragging || !barWrapper) return;
-    curPosX = initialPosX + (e.clientX - dragStartX); curPosY = initialPosY + (e.clientY - dragStartY);
+    if (!isDragging) return;
+    curPosX = initialPosX + (e.clientX - dragStartX);
+    curPosY = initialPosY + (e.clientY - dragStartY);
     if (!dragRafId) {
       dragRafId = requestAnimationFrame(() => {
-        barWrapper.style.transform = \`translate3d(\${curPosX}px, \${curPosY}px, 0)\`;
+        if (bar) bar.style.transform = "translate3d(" + curPosX + "px, " + curPosY + "px, 0)";
         dragRafId = null;
       });
     }
@@ -102,7 +89,8 @@ export const INJECTED_ADVANCED_RECORDER_SCRIPT = `
   shadow.getElementById("btn-toggle")?.addEventListener("click", () => {
     isCollapsed = !isCollapsed;
     shadow.getElementById("bar")?.classList.toggle("collapsed", isCollapsed);
-    shadow.getElementById("btn-toggle").innerText = isCollapsed ? "▶" : "◀";
+    const toggleBtn = shadow.getElementById("btn-toggle");
+    if (toggleBtn) toggleBtn.innerHTML = isCollapsed ? ${JSON.stringify(ICONS.chevronRight)} : ${JSON.stringify(ICONS.chevronLeft)};
   });
 
   ${INJECTED_EVENT_RECORDER_SRC}

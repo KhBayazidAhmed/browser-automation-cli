@@ -1,0 +1,33 @@
+{
+	"name": "workflow 1787314093260",
+	"description": "Recorded on 8/21/2026, 6:08:43 PM",
+	"variables": {},
+	"steps": [
+		{
+			"name": "Navigate to webcamtests.com",
+			"action": "goto",
+			"url": "https://webcamtests.com/"
+		},
+		{
+			"name": "Click \"CDP Virtual Webcam (HD)\nOBS Virtual Camera\"",
+			"action": "click",
+			"selector": "#webcam-selecter",
+			"text": "CDP Virtual Webcam (HD)\nOBS Virtual Camera",
+			"strictText": true
+		},
+		{
+			"name": "Click \"CDP Virtual Webcam (HD)\nOBS Virtual Camera\"",
+			"action": "click",
+			"selector": "#webcam-selecter",
+			"text": "CDP Virtual Webcam (HD)\nOBS Virtual Camera",
+			"strictText": true
+		},
+		{
+			"name": "Click \"Test my cam\"",
+			"action": "click",
+			"selector": "#webcam-launcher",
+			"text": "Test my cam",
+			"strictText": true
+		}
+	]
+}

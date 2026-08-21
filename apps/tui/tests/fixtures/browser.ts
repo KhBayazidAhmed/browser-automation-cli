@@ -10,6 +10,7 @@ export interface TestContext {
 
 let sharedBrowser: Browser | null = null;
 let sharedServer: TestServer | null = null;
+let activeContexts = 0;
 
 export async function setupTestContext(): Promise<TestContext> {
 	if (!sharedServer) {
@@ -23,6 +24,7 @@ export async function setupTestContext(): Promise<TestContext> {
 		});
 	}
 
+	activeContexts++;
 	const page = await sharedBrowser.newPage();
 
 	return {
@@ -32,13 +34,21 @@ export async function setupTestContext(): Promise<TestContext> {
 	};
 }
 
-export async function teardownTestContext(): Promise<void> {
-	if (sharedBrowser) {
-		await sharedBrowser.close();
-		sharedBrowser = null;
+export async function teardownTestContext(ctx?: TestContext): Promise<void> {
+	activeContexts = Math.max(0, activeContexts - 1);
+	if (ctx?.page) {
+		try {
+			await ctx.page.close();
+		} catch {}
 	}
-	if (sharedServer) {
-		sharedServer.close();
-		sharedServer = null;
+	if (activeContexts === 0 && sharedBrowser) {
+		try {
+			await sharedBrowser.close();
+		} catch {}
+		sharedBrowser = null;
+		if (sharedServer) {
+			sharedServer.close();
+			sharedServer = null;
+		}
 	}
 }

@@ -1,0 +1,46 @@
+---
+title: Browser Automation CLI
+description: Ultra-lightweight, zero-bloat browser automation and visual recording studio powered by Chrome DevTools Protocol (CDP) and Bun.
+template: splash
+hero:
+  tagline: Browser Automation for Humans. Record visual workflows with an in-page HUD, extract data in one click, and replay flows with sub-millisecond overhead.
+  image:
+    file: ../../assets/houston.webp
+  actions:
+    - text: Quick Start (The Easy Way)
+      link: /getting-started/quick-start/
+      icon: rocket
+      variant: primary
+    - text: Interactive Studio Guide
+      link: /guides/interactive-studio/
+      icon: right-arrow
+    - text: CLI Command Reference
+      link: /reference/cli-commands/
+      icon: open-book
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## Why Browser Automation CLI?
+
+<CardGrid stagger>
+	<Card title="⚡ The Easy Way: Interactive Studio" icon="laptop">
+		Launch `bun cli` or `bun dev` to access the interactive terminal wizard. Run workflows, record sessions, execute tasks, or drop into a REPL with guided arrow-key prompts.
+	</Card>
+	<Card title="🔴 Visual Live In-Page Recorder" icon="star">
+		Record interactions in real-time inside Chrome with a floating HUD. Capture clicks, form inputs, assertions, and list extracts without writing boilerplate code.
+	</Card>
+	<Card title="🎯 Human-Centric Strict Locators" icon="puzzle">
+		Forget brittle auto-generated CSS selectors. Target elements directly by visible text (`text="Sign In"`), placeholder, or ARIA labels.
+	</Card>
+	<Card title="📊 Smart Table & List Extraction" icon="document">
+		Click a single row or card in your browser to auto-detect repeating structures and extract structured JSON data instantly.
+	</Card>
+	<Card title="🚀 Declarative JSON Replay" icon="setting">
+		Run recorded workflows headless in CI/CD or headed on desktop with variable overrides, assertions, and screenshot captures.
+	</Card>
+	<Card title="💬 Interactive Browser REPL" icon="pencil">
+		Inspect pages, execute CDP commands, test selectors, and evaluate expressions live on an active Chrome session.
+	</Card>
+</CardGrid>

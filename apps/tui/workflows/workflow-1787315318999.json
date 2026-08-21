@@ -1,0 +1,30 @@
+{
+	"name": "workflow 1787315318999",
+	"description": "Recorded on 8/21/2026, 6:30:51 PM",
+	"variables": {},
+	"steps": [
+		{
+			"name": "Navigate to webcamtests.com",
+			"action": "goto",
+			"url": "https://webcamtests.com/"
+		},
+		{
+			"name": "Click \"Test my cam\"",
+			"action": "click",
+			"selector": "#webcam-launcher",
+			"text": "Test my cam",
+			"strictText": true
+		},
+		{
+			"name": "Extract List \"extractedList\" from tr",
+			"action": "extractMultiple",
+			"containerSelector": "tr",
+			"as": "extractedList",
+			"limit": 20,
+			"fields": {
+				"title": "a, h1, h2, h3, .title, p",
+				"link": "a@href"
+			}
+		}
+	]
+}

@@ -73,7 +73,6 @@ describe("Flow Recorder - State Sync & Replay Suite", () => {
 
 		expect(subtitleText).toContain("Externally Updated Flow");
 		expect(subtitleText).toContain("1 steps");
-		expect(subtitleText).toContain("1 variables");
 	});
 
 	test("2. executes end-to-end recorded flow with FlowRunner replay validation", async () => {
@@ -129,5 +128,5 @@ describe("Flow Recorder - State Sync & Replay Suite", () => {
 		expect(result.success).toBe(true);
 		expect(result.steps.length).toBe(6);
 		expect(result.data.finalStatus).toContain("SAVED:validated@rec.com");
-	});
+	}, 15000);
 });

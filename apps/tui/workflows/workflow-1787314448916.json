@@ -1,0 +1,62 @@
+{
+	"name": "workflow 1787314448916",
+	"description": "Recorded on 8/21/2026, 6:22:26 PM",
+	"variables": {
+		"dawdawd": "",
+		"dawd": ""
+	},
+	"steps": [
+		{
+			"name": "Navigate to news.ycombinator.com",
+			"action": "goto",
+			"url": "https://news.ycombinator.com/"
+		},
+		{
+			"name": "Capture Screenshot at Step 2",
+			"action": "screenshot",
+			"path": "{{outputDir}}/screenshot-1787314647361.png"
+		},
+		{
+			"name": "Click \"1.\t\n\tDeepSeek-v4-flash-vision-exp (deepseek.com)\n\t139 points\"",
+			"action": "click",
+			"selector": "#bigbox > td",
+			"text": "1.\t\n\tDeepSeek-v4-flash-vision-exp (deepseek.com)\n\t139 points",
+			"strictText": true
+		},
+		{
+			"name": "Click \"1.\t\n\tDeepSeek-v4-flash-vision-exp (deepseek.com)\n\t139 points\"",
+			"action": "click",
+			"selector": "#bigbox > td",
+			"text": "1.\t\n\tDeepSeek-v4-flash-vision-exp (deepseek.com)\n\t139 points",
+			"strictText": true
+		},
+		{
+			"name": "Click \"Hacker Newsnew | past | comments | ask | show | jobs | submi\"",
+			"action": "click",
+			"selector": "body",
+			"text": "Hacker Newsnew | past | comments | ask | show | jobs | submi",
+			"strictText": true
+		},
+		{
+			"name": "Click \"Hacker Newsnew | past | comments | ask | show | jobs | submi\"",
+			"action": "click",
+			"selector": "body",
+			"text": "Hacker Newsnew | past | comments | ask | show | jobs | submi",
+			"strictText": true
+		},
+		{
+			"name": "Click \"Hacker Newsnew | past | comments | ask | show | jobs | submi\"",
+			"action": "click",
+			"selector": "body",
+			"text": "Hacker Newsnew | past | comments | ask | show | jobs | submi",
+			"strictText": true
+		},
+		{
+			"name": "Click \"Hacker Newsnew | past | comments | ask | show | jobs | submi\"",
+			"action": "click",
+			"selector": "body",
+			"text": "Hacker Newsnew | past | comments | ask | show | jobs | submi",
+			"strictText": true
+		}
+	]
+}

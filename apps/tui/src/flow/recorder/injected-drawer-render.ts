@@ -1,80 +1,94 @@
+import { ICONS } from "./hud-icons.js";
+
 export const INJECTED_DRAWER_RENDER_SRC = `
+  function getStepIcon(action) {
+    switch (action) {
+      case "click": return ${JSON.stringify(ICONS.check)};
+      case "type": return ${JSON.stringify(ICONS.code)};
+      case "screenshot": return ${JSON.stringify(ICONS.screenshot)};
+      case "wait": return ${JSON.stringify(ICONS.wait)};
+      case "waitForSelector": return ${JSON.stringify(ICONS.wait)};
+      case "extract": return ${JSON.stringify(ICONS.extract)};
+      case "extractMultiple": return ${JSON.stringify(ICONS.list)};
+      case "assert": return ${JSON.stringify(ICONS.assert)};
+      case "goto": return ${JSON.stringify(ICONS.globe)};
+      default: return ${JSON.stringify(ICONS.zap)};
+    }
+  }
+
   function renderStepsList() {
     const container = shadow.getElementById("steps-list-container");
+    const countEl = shadow.getElementById("tab-steps-count");
     if (!container) return;
-    if (flowState.steps.length === 0) {
+    if (countEl) countEl.innerText = (flowState.steps || []).length;
+    if (!flowState.steps || flowState.steps.length === 0) {
       container.innerHTML = '<div class="empty-state">No steps recorded yet. Click or type on the page to begin!</div>';
       return;
     }
     container.innerHTML = "";
     flowState.steps.forEach((step, idx) => {
-      const card = document.createElement("div");
-      card.className = "step-item";
-      const action = step.action || "step";
-      const pillClass = "pill-" + action.toLowerCase();
-      const stepName = step.name || \`\${action.toUpperCase()} Step \${idx + 1}\`;
-      let detail = step.url || step.selector || step.code || step.path || (step.durationMs ? \`\${step.durationMs}ms\` : "");
-      card.innerHTML = \`
-        <div class="step-item-left">
-          <div class="step-index-badge">#\${idx + 1}</div>
-          <div class="step-action-pill \${pillClass}">\${action}</div>
-          <div class="step-info"><div class="step-name">\${stepName}</div><div class="step-detail">\${detail}</div></div>
+      const item = document.createElement("div");
+      item.className = "step-item";
+      const iconSvg = getStepIcon(step.action);
+      item.innerHTML = \`
+        <div class="step-num">\${idx + 1}</div>
+        <div class="step-content">
+          <div class="step-title">\${iconSvg} \${step.name || step.action}</div>
+          <div class="step-meta">\${step.selector ? \`Selector: \${step.selector}\` : (step.url ? \`URL: \${step.url}\` : (step.durationMs ? \`Wait: \${step.durationMs}ms\` : "")) }</div>
         </div>
         <div class="step-actions">
-          <button class="btn-icon btn-icon-up" data-idx="\${idx}" \${idx === 0 ? "disabled style='opacity:0.3;'" : ""}>↑</button>
-          <button class="btn-icon btn-icon-down" data-idx="\${idx}" \${idx === flowState.steps.length - 1 ? "disabled style='opacity:0.3;'" : ""}>↓</button>
-          <button class="btn-icon btn-icon-del" data-idx="\${idx}">🗑️</button>
+          \${idx > 0 ? '<button class="btn-icon btn-icon-up" title="Move Up">' + ${JSON.stringify(ICONS.chevronUp)} + '</button>' : ''}
+          \${idx < flowState.steps.length - 1 ? '<button class="btn-icon btn-icon-down" title="Move Down">' + ${JSON.stringify(ICONS.chevronDown)} + '</button>' : ''}
+          <button class="btn-icon btn-icon-del" title="Delete Step">' + ${JSON.stringify(ICONS.trash)} + '</button>
         </div>
       \`;
-      card.querySelector(".btn-icon-up")?.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (idx > 0) {
-          const temp = flowState.steps[idx];
-          flowState.steps[idx] = flowState.steps[idx - 1];
-          flowState.steps[idx - 1] = temp;
-          persistState(); renderDrawer();
-          emitRecordEvent({ type: "moveStep", fromIndex: idx, toIndex: idx - 1 });
-        }
+
+      item.querySelector(".btn-icon-up")?.addEventListener("click", () => {
+        const temp = flowState.steps[idx];
+        flowState.steps[idx] = flowState.steps[idx - 1];
+        flowState.steps[idx - 1] = temp;
+        persistState(); renderDrawer();
+        emitRecordEvent({ type: "moveStep", fromIndex: idx, toIndex: idx - 1 });
       });
-      card.querySelector(".btn-icon-down")?.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (idx < flowState.steps.length - 1) {
-          const temp = flowState.steps[idx];
-          flowState.steps[idx] = flowState.steps[idx + 1];
-          flowState.steps[idx + 1] = temp;
-          persistState(); renderDrawer();
-          emitRecordEvent({ type: "moveStep", fromIndex: idx, toIndex: idx + 1 });
-        }
+
+      item.querySelector(".btn-icon-down")?.addEventListener("click", () => {
+        const temp = flowState.steps[idx];
+        flowState.steps[idx] = flowState.steps[idx + 1];
+        flowState.steps[idx + 1] = temp;
+        persistState(); renderDrawer();
+        emitRecordEvent({ type: "moveStep", fromIndex: idx, toIndex: idx + 1 });
       });
-      card.querySelector(".btn-icon-del")?.addEventListener("click", (e) => {
-        e.stopPropagation();
+
+      item.querySelector(".btn-icon-del")?.addEventListener("click", () => {
         flowState.steps.splice(idx, 1);
         persistState(); renderDrawer();
         emitRecordEvent({ type: "deleteStep", index: idx });
       });
-      container.appendChild(card);
+
+      container.appendChild(item);
     });
   }
 
   function renderJsonViewer() {
-    const viewer = shadow.getElementById("json-viewer");
-    if (!viewer) return;
-    viewer.innerText = JSON.stringify({ name: flowState.name, variables: flowState.variables, steps: flowState.steps }, null, 2);
+    const viewer = shadow.getElementById("drawer-json-viewer");
+    if (viewer) viewer.value = JSON.stringify(flowState, null, 2);
   }
 
   function renderVarsList() {
-    const container = shadow.getElementById("vars-list");
+    const container = shadow.getElementById("vars-list-container");
+    const countEl = shadow.getElementById("tab-vars-count");
     if (!container) return;
-    const keys = Object.keys(flowState.variables);
+    const keys = Object.keys(flowState.variables || {});
+    if (countEl) countEl.innerText = keys.length;
     if (keys.length === 0) {
-      container.innerHTML = '<div class="empty-state">No variables defined yet.</div>';
+      container.innerHTML = '<div class="empty-state">No custom variables declared.</div>';
       return;
     }
     container.innerHTML = "";
     keys.forEach((key) => {
       const row = document.createElement("div");
       row.className = "var-item";
-      row.innerHTML = \`<div><span class="var-key">\${key}</span>: <span class="var-val">"\${flowState.variables[key]}"</span></div><button class="btn-icon btn-icon-del">🗑️</button>\`;
+      row.innerHTML = '<div><span class="var-key">' + key + '</span>: <span class="var-val">"' + (flowState.variables[key] || '') + '"</span></div><button class="btn-icon btn-icon-del" title="Delete">' + ${JSON.stringify(ICONS.trash)} + '</button>';
       row.querySelector(".btn-icon-del")?.addEventListener("click", () => {
         delete flowState.variables[key];
         persistState(); renderDrawer();
@@ -86,7 +100,12 @@ export const INJECTED_DRAWER_RENDER_SRC = `
 
   function renderDrawer() {
     updateBadge();
-    if (!isDrawerOpen) return;
+    const sub = shadow.getElementById("drawer-subtitle");
+    if (sub) {
+      const stepCount = (flowState.steps || []).length;
+      const varCount = Object.keys(flowState.variables || {}).length;
+      sub.innerText = "Flow: " + (flowState.name || "Recorded Flow") + " • " + stepCount + " steps • " + varCount + " variables";
+    }
     renderStepsList();
     renderJsonViewer();
     renderVarsList();
@@ -117,54 +136,64 @@ export const INJECTED_DRAWER_RENDER_SRC = `
   });
 
   shadow.getElementById("btn-copy-json")?.addEventListener("click", () => {
-    const viewer = shadow.getElementById("json-viewer");
-    if (viewer) { navigator.clipboard?.writeText(viewer.innerText); showToast("✓ Copied JSON to Clipboard!"); }
+    const viewer = shadow.getElementById("drawer-json-viewer");
+    if (viewer) {
+      navigator.clipboard?.writeText(viewer.value);
+      showToast("JSON copied to clipboard!");
+    }
   });
 
   shadow.getElementById("btn-add-var")?.addEventListener("click", () => {
-    const keyInput = shadow.getElementById("new-var-key"), valInput = shadow.getElementById("new-var-val");
-    const key = keyInput?.value?.trim(), val = valInput?.value?.trim() || "";
-    if (key) {
-      flowState.variables[key] = val;
-      if (keyInput) keyInput.value = ""; if (valInput) valInput.value = "";
+    const k = shadow.getElementById("new-var-key")?.value?.trim();
+    const v = shadow.getElementById("new-var-val")?.value?.trim();
+    if (k) {
+      flowState.variables = flowState.variables || {};
+      flowState.variables[k] = v || "";
       persistState(); renderDrawer();
-      emitRecordEvent({ type: "addVariable", key, value: val });
+      emitRecordEvent({ type: "setVariables", variables: flowState.variables });
+      shadow.getElementById("new-var-key").value = "";
+      shadow.getElementById("new-var-val").value = "";
+      showToast('Variable "' + k + '" saved');
     }
   });
 
   shadow.getElementById("btn-submit-wait")?.addEventListener("click", () => {
     const ms = Number(shadow.getElementById("add-wait-ms")?.value) || 1000;
-    flowState.steps.push({ name: \`Wait \${ms}ms\`, action: "wait", durationMs: ms });
-    persistState(); renderDrawer();
-    emitRecordEvent({ type: "wait", durationMs: ms, name: \`Wait \${ms}ms\` });
+    const step = { name: "Wait " + ms + "ms", action: "wait", durationMs: ms };
+    flowState.steps.push(step); persistState(); renderDrawer();
+    emitRecordEvent({ type: "wait", durationMs: ms, name: step.name });
+    showToast("Added " + ms + "ms delay");
   });
 
   shadow.getElementById("btn-submit-waitfor")?.addEventListener("click", () => {
     const sel = shadow.getElementById("add-waitfor-sel")?.value?.trim();
     const text = shadow.getElementById("add-waitfor-text")?.value?.trim();
-    if (!sel && !text) return;
-    const step = { name: \`Wait for \${sel || text}\`, action: "waitForSelector", selector: sel || undefined, text: text || undefined, strictText: text ? true : undefined };
-    flowState.steps.push(step);
-    persistState(); renderDrawer();
-    emitRecordEvent({ type: "waitForSelector", selector: sel, text, strictText: Boolean(text), name: step.name });
+    if (sel || text) {
+      const step = { name: "Wait for " + (sel || text), action: "waitForSelector", selector: sel, text: text };
+      flowState.steps.push(step); persistState(); renderDrawer();
+      emitRecordEvent({ type: "waitForSelector", selector: sel, text: text, name: step.name });
+      showToast("Added WaitForSelector step");
+    }
   });
 
   shadow.getElementById("btn-submit-eval")?.addEventListener("click", () => {
     const code = shadow.getElementById("add-eval-code")?.value?.trim();
     const as = shadow.getElementById("add-eval-var")?.value?.trim();
-    if (!code) return;
-    const step = { name: \`Eval JS\${as ? \` -> "\${as}"\` : ""}\`, action: "eval", code, as: as || undefined };
-    flowState.steps.push(step);
-    persistState(); renderDrawer();
-    emitRecordEvent({ type: "eval", code, as: as || undefined, name: step.name });
+    if (code) {
+      const step = { name: "Evaluate Code", action: "eval", code, as };
+      flowState.steps.push(step); persistState(); renderDrawer();
+      emitRecordEvent({ type: "eval", code, as, name: step.name });
+      showToast("Added Eval step");
+    }
   });
 
   shadow.getElementById("btn-submit-goto")?.addEventListener("click", () => {
     const url = shadow.getElementById("add-goto-url")?.value?.trim();
-    if (!url) return;
-    const step = { name: \`Navigate to \${url}\`, action: "goto", url };
-    flowState.steps.push(step);
-    persistState(); renderDrawer();
-    emitRecordEvent({ type: "goto", url, name: step.name });
+    if (url) {
+      const step = { name: "Navigate to " + url, action: "goto", url };
+      flowState.steps.push(step); persistState(); renderDrawer();
+      emitRecordEvent({ type: "goto", url, name: step.name });
+      showToast("Added Navigation to " + url);
+    }
   });
 `;

@@ -32,7 +32,9 @@ export const scrapeHnTask: TaskDefinition = {
 		log.success(`Page loaded in ${Math.round(performance.now() - navStart)}ms`);
 
 		log.info(`Extracting top ${limit} stories...`);
-		const stories = await page.evaluate((maxCount) => {
+		const stories = await page.evaluate<
+			Array<{ id: string; title: string; url: string; score: string; author: string }>
+		>((maxCount: number) => {
 			const rows = Array.from(document.querySelectorAll("tr.athing"));
 			return rows.slice(0, maxCount).map((row) => {
 				const id = row.getAttribute("id") || "";

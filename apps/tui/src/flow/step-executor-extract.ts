@@ -1,4 +1,5 @@
-import { join } from "node:path";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import type { Page } from "../cdp/page.js";
 import type {
 	AssertStep,
@@ -6,7 +7,9 @@ import type {
 	EvalStep,
 	ExtractMultipleStep,
 	ExtractStep,
+	FlowStep,
 	PDFStep,
+	SaveStep,
 	ScreenshotStep,
 } from "./types.js";
 
@@ -21,43 +24,12 @@ export async function executeExtractStep(
 		case "extract": {
 			const s = step as ExtractStep;
 			const selector = s.selector ? interpolate(s.selector, ctx) : undefined;
-			const text = s.text ? interpolate(s.text, ctx) : undefined;
-			const strictText =
-				typeof s.strictText === "string"
-					? interpolate(s.strictText, ctx)
-					: s.strictText !== undefined
-						? s.strictText
-						: text
-							? true
-							: undefined;
-			const attribute = s.attribute || "text";
-
-			if (s.all) {
-				return page.getMultipleText(selector || "*", {
-					text,
-					strictText,
-					ignoreCase: s.ignoreCase,
-					regex: s.regex,
-					startsWith: s.startsWith,
-					endsWith: s.endsWith,
-					normalizeWhitespace: s.normalizeWhitespace,
-				});
-			}
-
-			if (attribute === "text" || attribute === "innerText") {
-				return page.getText(selector, {
-					text,
-					strictText,
-					ignoreCase: s.ignoreCase,
-					regex: s.regex,
-					startsWith: s.startsWith,
-					endsWith: s.endsWith,
-					normalizeWhitespace: s.normalizeWhitespace,
-				});
-			}
-			return page.getAttribute(selector, attribute, {
-				text,
-				strictText,
+			const rawText = s.text ? interpolate(s.text, ctx) : undefined;
+			const rawStrict =
+				typeof s.strictText === "string" ? interpolate(s.strictText, ctx) : s.strictText;
+			return page.getText(selector, {
+				text: rawText,
+				strictText: rawStrict,
 				ignoreCase: s.ignoreCase,
 				regex: s.regex,
 				startsWith: s.startsWith,
@@ -71,7 +43,14 @@ export async function executeExtractStep(
 			const containerSelector = interpolate(s.containerSelector, ctx);
 			const filterText = s.filterText ? interpolate(s.filterText, ctx) : undefined;
 			return page.evaluate(
-				(cSel, fMap, maxItems, fText, fIgnore, fRegex) => {
+				(
+					cSel: string,
+					fMap: Record<string, string>,
+					maxItems: number,
+					fText?: string,
+					fIgnore?: boolean,
+					fRegex?: string,
+				) => {
 					let containers = Array.from(document.querySelectorAll(cSel)) as HTMLElement[];
 					if (fRegex) {
 						const r = new RegExp(fRegex, fIgnore ? "i" : "");
@@ -87,7 +66,7 @@ export async function executeExtractStep(
 					containers = containers.slice(0, maxItems);
 					return containers.map((container) => {
 						const item: Record<string, string> = {};
-						for (const [fieldKey, fieldDef] of Object.entries(fMap as Record<string, string>)) {
+						for (const [fieldKey, fieldDef] of Object.entries(fMap || {})) {
 							if (fieldDef.includes("@")) {
 								const [subSel, attr] = fieldDef.split("@");
 								const targetEl = subSel ? container.querySelector(subSel) : container;
@@ -102,107 +81,89 @@ export async function executeExtractStep(
 				},
 				containerSelector,
 				s.fields,
-				s.limit || 100,
+				Number(s.limit) || 100,
 				filterText,
 				Boolean(s.filterIgnoreCase),
 				s.filterRegex,
 			);
 		}
 
-		case "screenshot": {
-			const s = step as ScreenshotStep;
-			const outDir = (ctx.outputDir as string) || "";
-			const rawPath = s.path || join(outDir, `screenshot-${Date.now()}.png`);
-			const path = interpolate(rawPath, ctx);
-			await page.screenshot({ path, fullPage: s.fullPage });
-			return path;
-		}
-
-		case "pdf": {
-			const s = step as PDFStep;
-			const outDir = (ctx.outputDir as string) || "";
-			const rawPath = s.path || join(outDir, `document-${Date.now()}.pdf`);
-			const path = interpolate(rawPath, ctx);
-			await page.pdf({ path });
-			return path;
+		case "eval": {
+			const s = step as EvalStep;
+			const code = s.code || s.script || "";
+			const interpolatedCode = interpolate(code, ctx);
+			return page.evaluate(interpolatedCode);
 		}
 
 		case "block": {
 			const s = step as BlockStep;
-			await page.blockResources(s.types);
-			return s.types;
+			const types = (s.types || ["image", "media", "font"]).map(String);
+			return page.blockResources(types);
 		}
 
-		case "eval": {
-			const s = step as EvalStep;
-			const code = interpolate(s.code || s.script || "", ctx);
-			return page.evaluate(code);
+		case "screenshot": {
+			const s = step as ScreenshotStep;
+			const shotBuffer = await page.screenshot({
+				fullPage: s.fullPage,
+			});
+			if (s.path) {
+				const outPath = interpolate(s.path, ctx);
+				await mkdir(dirname(outPath), { recursive: true });
+				await writeFile(outPath, shotBuffer);
+				return { savedTo: outPath };
+			}
+			return shotBuffer;
+		}
+
+		case "pdf": {
+			const s = step as PDFStep;
+			const pdfBuffer = await page.pdf();
+			if (s.path) {
+				const outPath = interpolate(s.path, ctx);
+				await mkdir(dirname(outPath), { recursive: true });
+				await writeFile(outPath, pdfBuffer);
+				return { savedTo: outPath };
+			}
+			return pdfBuffer;
 		}
 
 		case "assert": {
 			const s = step as AssertStep;
 			const selector = s.selector ? interpolate(s.selector, ctx) : undefined;
-			const text = s.text ? interpolate(s.text, ctx) : undefined;
-			const equals = s.equals ? interpolate(s.equals, ctx) : undefined;
-			const contains = s.contains ? interpolate(s.contains, ctx) : undefined;
-			const startsWith = s.startsWith ? interpolate(s.startsWith, ctx) : undefined;
-			const endsWith = s.endsWith ? interpolate(s.endsWith, ctx) : undefined;
-			const matches = s.matches ? interpolate(s.matches, ctx) : undefined;
-			const strictText =
-				typeof s.strictText === "string"
-					? interpolate(s.strictText, ctx)
-					: s.strictText !== undefined
-						? s.strictText
-						: equals
-							? equals
-							: text
-								? true
-								: undefined;
+			const rawText = s.text ? interpolate(s.text, ctx) : undefined;
+			const rawStrict =
+				typeof s.strictText === "string" ? interpolate(s.strictText, ctx) : s.strictText;
+			const rawEquals = s.equals ? interpolate(s.equals, ctx) : undefined;
+			const rawContains = s.contains ? interpolate(s.contains, ctx) : undefined;
+			const rawStarts = s.startsWith ? interpolate(s.startsWith, ctx) : undefined;
+			const rawEnds = s.endsWith ? interpolate(s.endsWith, ctx) : undefined;
+			const rawMatches = s.matches ? interpolate(s.matches, ctx) : undefined;
 
 			return page.assertText(selector, {
-				equals: typeof strictText === "string" ? strictText : equals,
-				contains,
-				startsWith,
-				endsWith,
-				matches,
+				text: rawText,
+				strictText: rawStrict,
+				equals: rawEquals,
+				contains: rawContains,
+				startsWith: rawStarts,
+				endsWith: rawEnds,
+				matches: rawMatches,
 				ignoreCase: s.ignoreCase,
 				normalizeWhitespace: s.normalizeWhitespace,
-				strictText,
-				text,
 				attribute: s.attribute,
 				timeout: s.timeout,
 			});
 		}
 
 		case "save": {
-			const s = step as Record<string, unknown>;
-			const outDir = (ctx.outputDir as string) || "";
-			const rawPath = (s.path as string) || join(outDir, "extracted-data.json");
-			const path = interpolate(rawPath, ctx);
-			const format = s.format || (path.endsWith(".csv") ? "csv" : "json");
-			const data = (ctx.extractedData || ctx) as Record<string, unknown>;
-
-			if (format === "csv") {
-				const csvRows: string[] = [];
-				for (const k of Object.keys(data)) {
-					const val = data[k];
-					if (Array.isArray(val) && val.length > 0 && typeof val[0] === "object") {
-						const headers = Object.keys(val[0]);
-						csvRows.push(headers.join(","));
-						for (const row of val) {
-							csvRows.push(headers.map((h) => JSON.stringify(row[h] ?? "")).join(","));
-						}
-						break;
-					}
-				}
-				await Bun.write(path, csvRows.join("\n") || "No tabular data");
-			} else {
-				await Bun.write(path, JSON.stringify(data, null, 2));
-			}
-			return path;
+			const s = step as SaveStep;
+			const outPath = interpolate(s.path || "{{outputDir}}/data.json", ctx);
+			await mkdir(dirname(outPath), { recursive: true });
+			const content = JSON.stringify(ctx, null, 2);
+			await writeFile(outPath, content, "utf-8");
+			return { savedTo: outPath };
 		}
 
 		default:
-			throw new Error(`Unknown flow action: ${action}`);
+			throw new Error(`Unhandled step action in dispatch: ${(step as FlowStep).action}`);
 	}
 }

@@ -63,3 +63,36 @@ export function printReplTasks() {
 	}
 	console.log();
 }
+
+export const listTasks = printReplTasks;
+
+export async function handleTaskCommand(args: string[], headless = false): Promise<void> {
+	if (!args || args.length === 0 || !args[0]) {
+		console.log(`${colors.red}Usage: task <taskId> [jsonArgs]${colors.reset}`);
+		printReplTasks();
+		return;
+	}
+
+	const [taskId, ...rawJsonParts] = args;
+	if (!taskId) return;
+
+	let taskArgs: Record<string, any> = {};
+
+	if (rawJsonParts.length > 0) {
+		try {
+			taskArgs = JSON.parse(rawJsonParts.join(" "));
+		} catch (err: unknown) {
+			console.log(
+				`${colors.yellow}Warning: Could not parse task arguments as JSON, passing as empty object.${colors.reset}`,
+			);
+		}
+	}
+
+	try {
+		await taskRegistry.run(taskId, taskArgs, { headless });
+	} catch (err: unknown) {
+		console.log(
+			`${colors.red}Task failed: ${err instanceof Error ? err.message : String(err)}${colors.reset}`,
+		);
+	}
+}

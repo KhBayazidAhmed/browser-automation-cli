@@ -14,7 +14,7 @@ function __cdpFindElement(sel, opts) {
     if (typeof opts.strictText === "string") {
       targetText = opts.strictText;
       isStrict = true;
-    } else if (opts.strictText === true) {
+    } else if (opts.strictText === true && targetText) {
       isStrict = true;
     } else if (opts.text && opts.strictText !== false) {
       isStrict = true;
@@ -65,14 +65,6 @@ function __cdpFindElement(sel, opts) {
                   s = endsWithMatch[1].trim();
                   endsWith = endsWithMatch[2];
                   if (endsWithMatch[3] && endsWithMatch[3].toLowerCase().includes("i")) ignoreCase = true;
-                } else {
-                  const hasTextMatch = s.match(/^(.*?):(has-text|contains)\\s*\\(\\s*["']([^"']+)["'](?:\\s*,\\s*["']?([a-z]*)["']?)?\\s*\\)$/i);
-                  if (hasTextMatch) {
-                    s = hasTextMatch[1].trim();
-                    targetText = hasTextMatch[3];
-                    isStrict = false;
-                    if (hasTextMatch[4] && hasTextMatch[4].toLowerCase().includes("i")) ignoreCase = true;
-                  }
                 }
               }
             }
@@ -82,24 +74,6 @@ function __cdpFindElement(sel, opts) {
     }
   }
 
-  let candidates = [];
-  if (s) {
-    try {
-      candidates = Array.from(document.querySelectorAll(s));
-    } catch {
-      if (!targetText && !regex && !startsWith && !endsWith) {
-        targetText = s;
-        isStrict = !opts || opts.strictText !== false;
-      }
-    }
-  }
-
-  const hasTextCheck = Boolean(targetText !== undefined && targetText !== "") || Boolean(regex) || Boolean(startsWith) || Boolean(endsWith);
-
-  if (candidates.length === 0 && hasTextCheck) {
-    candidates = Array.from(document.querySelectorAll("button, a, input, textarea, select, label, summary, [role='button'], [role='link'], [role='tab'], [role='menuitem'], [role='option'], [tabindex], h1, h2, h3, h4, h5, h6, p, span, div, li, td, th, *"));
-  }
-
   const normalize = (str) => {
     if (str === null || str === undefined) return "";
     let res = String(str);
@@ -107,96 +81,64 @@ function __cdpFindElement(sel, opts) {
     return res.trim();
   };
 
-  let regexObj = null;
-  if (regex) {
+  const checkStringMatch = (actual) => {
+    if (actual === null || actual === undefined) return false;
+    const actNorm = normalize(actual);
+    const actCased = ignoreCase ? actNorm.toLowerCase() : actNorm;
+
+    if (regex) {
+      const flags = regexFlags + (ignoreCase && !regexFlags.includes("i") ? "i" : "");
+      return new RegExp(regex, flags).test(actual);
+    }
+    if (startsWith !== undefined) {
+      const exp = ignoreCase ? normalize(startsWith).toLowerCase() : normalize(startsWith);
+      return actCased.startsWith(exp);
+    }
+    if (endsWith !== undefined) {
+      const exp = ignoreCase ? normalize(endsWith).toLowerCase() : normalize(endsWith);
+      return actCased.endsWith(exp);
+    }
+    if (targetText !== undefined) {
+      const exp = ignoreCase ? normalize(targetText).toLowerCase() : normalize(targetText);
+      if (isStrict) return actCased === exp;
+      return actCased.includes(exp);
+    }
+    return true;
+  };
+
+  const matchesText = (el) => {
+    if (!targetText && !regex && !startsWith && !endsWith) return true;
+    const candidates = [];
+    if (el.innerText) candidates.push(el.innerText);
+    if (el.textContent && el.textContent !== el.innerText) candidates.push(el.textContent);
+    if (el.value !== undefined && typeof el.value === "string" && el.value.length > 0) candidates.push(el.value);
+    const placeholder = el.getAttribute ? el.getAttribute("placeholder") : null;
+    if (placeholder) candidates.push(placeholder);
+    const ariaLabel = el.getAttribute ? el.getAttribute("aria-label") : null;
+    if (ariaLabel) candidates.push(ariaLabel);
+    const title = el.getAttribute ? el.getAttribute("title") : null;
+    if (title) candidates.push(title);
+
+    return candidates.some(checkStringMatch);
+  };
+
+  if (s) {
     try {
-      regexObj = new RegExp(regex, regexFlags || (ignoreCase ? "i" : ""));
+      const candidates = Array.from(document.querySelectorAll(s));
+      if (!targetText && !regex && !startsWith && !endsWith) return candidates[0] || null;
+      for (const el of candidates) {
+        if (matchesText(el)) return el;
+      }
     } catch {}
   }
 
-  const targetNorm = normalize(targetText);
-  const targetCased = ignoreCase ? targetNorm.toLowerCase() : targetNorm;
-  const startsWithNorm = startsWith ? normalize(startsWith) : null;
-  const startsWithCased = startsWithNorm && ignoreCase ? startsWithNorm.toLowerCase() : startsWithNorm;
-  const endsWithNorm = endsWith ? normalize(endsWith) : null;
-  const endsWithCased = endsWithNorm && ignoreCase ? endsWithNorm.toLowerCase() : endsWithNorm;
-
-  if (!hasTextCheck) {
-    for (const el of candidates) {
-      if (!el.closest || !el.closest("#__cdp_recorder_hud__")) return el;
-    }
-    return candidates[0] || null;
-  }
-
-  const matched = [];
-  for (const el of candidates) {
-    if (el.closest && el.closest("#__cdp_recorder_hud__")) continue;
-    const inner = normalize(el.innerText);
-    const content = normalize(el.textContent);
-    const val = "value" in el && typeof el.value === "string" ? normalize(el.value) : "";
-    const aria = normalize(el.getAttribute("aria-label"));
-    const placeholder = normalize(el.getAttribute("placeholder"));
-    const title = normalize(el.getAttribute("title"));
-    const alt = normalize(el.getAttribute("alt"));
-
-    const values = [inner, content, val, aria, placeholder, title, alt].filter(Boolean);
-    let isMatch = false;
-    let isDirectMatch = false;
-
-    for (const rawV of values) {
-      const v = ignoreCase ? rawV.toLowerCase() : rawV;
-      if (regexObj) {
-        if (regexObj.test(rawV)) {
-          isMatch = true;
-          isDirectMatch = true;
-          break;
-        }
-      } else if (startsWithCased !== null) {
-        if (v.startsWith(startsWithCased)) {
-          isMatch = true;
-          if (v === startsWithCased) isDirectMatch = true;
-          break;
-        }
-      } else if (endsWithCased !== null) {
-        if (v.endsWith(endsWithCased)) {
-          isMatch = true;
-          if (v === endsWithCased) isDirectMatch = true;
-          break;
-        }
-      } else if (targetNorm !== "") {
-        if (isStrict) {
-          if (v === targetCased) {
-            isMatch = true;
-            isDirectMatch = true;
-            break;
-          }
-        } else if (v.includes(targetCased)) {
-          isMatch = true;
-          if (v === targetCased) isDirectMatch = true;
-          break;
-        }
-      }
-    }
-
-    if (isMatch) {
-      let depth = 0;
-      let p = el;
-      while (p) {
-        depth++;
-        p = p.parentElement;
-      }
-      const textLen = (content || inner || val).length;
-      matched.push({ el, depth, textLen, isDirect: isDirectMatch });
+  if (targetText || regex || startsWith || endsWith) {
+    const all = Array.from(document.querySelectorAll("button, a, input, textarea, select, [role='button'], p, span, h1, h2, h3, h4, h5, h6, label, div, td, th, li"));
+    for (const el of all) {
+      if (matchesText(el)) return el;
     }
   }
 
-  if (matched.length === 0) return null;
-  matched.sort((a, b) => {
-    if (a.isDirect !== b.isDirect) return a.isDirect ? -1 : 1;
-    if (a.textLen !== b.textLen) return a.textLen - b.textLen;
-    return b.depth - a.depth;
-  });
-
-  return matched[0].el;
+  return null;
 }
 `;

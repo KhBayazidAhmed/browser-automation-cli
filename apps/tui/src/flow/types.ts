@@ -14,6 +14,7 @@ export type FlowActionType =
 	| "save";
 
 export interface BaseStep {
+	[key: string]: unknown;
 	name?: string;
 	action: FlowActionType;
 	text?: string;
@@ -171,7 +172,7 @@ export interface FlowDefinition {
 	name: string;
 	description?: string;
 	version?: string;
-	variables?: Record<string, string | number | boolean>;
+	variables?: Record<string, unknown>;
 	steps: FlowStep[];
 	headless?: boolean;
 	blockMedia?: boolean;
@@ -179,12 +180,15 @@ export interface FlowDefinition {
 
 export interface StepExecutionResult {
 	stepIndex: number;
-	name: string;
+	name?: string;
+	stepName?: string;
 	action: FlowActionType;
+	status?: "pass" | "fail" | "skipped";
+	success?: boolean;
 	durationMs: number;
-	success: boolean;
+	result?: unknown;
+	extracted?: unknown;
 	error?: string;
-	extracted?: any;
 }
 
 export interface FlowExecutionResult {
@@ -192,6 +196,6 @@ export interface FlowExecutionResult {
 	success: boolean;
 	totalDurationMs: number;
 	steps: StepExecutionResult[];
-	data: Record<string, any>;
+	data: Record<string, unknown>;
 	error?: string;
 }

@@ -38,6 +38,14 @@ export class TaskRegistry {
 		return this.tasks.get(id);
 	}
 
+	async run(
+		taskId: string,
+		args: Record<string, string | boolean | number> = {},
+		options: { headless?: boolean } = {},
+	): Promise<TaskExecutionResult> {
+		return this.runTask(taskId, args, options);
+	}
+
 	async runTask(
 		taskId: string,
 		args: Record<string, string | boolean | number> = {},

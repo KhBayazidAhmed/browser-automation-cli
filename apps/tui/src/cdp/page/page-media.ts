@@ -7,6 +7,30 @@ export async function captureScreenshot(
 ): Promise<Uint8Array> {
 	await page.init();
 
+	if (options.clip) {
+		const clip = options.clip;
+		const response = await page.client.send("Page.captureScreenshot", {
+			format: options.format || "png",
+			quality: options.quality,
+			clip: {
+				x: clip.x,
+				y: clip.y,
+				width: clip.width,
+				height: clip.height,
+				scale: 1,
+			},
+		});
+
+		const buffer = Buffer.from(response.data, "base64");
+		const uint8 = new Uint8Array(buffer);
+
+		if (options.path) {
+			await Bun.write(options.path, uint8);
+		}
+
+		return uint8;
+	}
+
 	if (options.fullPage) {
 		const metrics = await page.client.send("Page.getLayoutMetrics");
 		const width = Math.ceil(metrics.contentSize.width);
@@ -18,18 +42,31 @@ export async function captureScreenshot(
 			deviceScaleFactor: 1,
 			mobile: false,
 		});
+
+		const response = await page.client.send("Page.captureScreenshot", {
+			format: options.format || "png",
+			quality: options.quality,
+			captureBeyondViewport: true,
+		});
+
+		await page.client.send("Emulation.clearDeviceMetricsOverride");
+
+		const buffer = Buffer.from(response.data, "base64");
+		const uint8 = new Uint8Array(buffer);
+
+		if (options.path) {
+			await Bun.write(options.path, uint8);
+		}
+
+		return uint8;
 	}
 
-	const res = await page.client.send("Page.captureScreenshot", {
+	const response = await page.client.send("Page.captureScreenshot", {
 		format: options.format || "png",
 		quality: options.quality,
 	});
 
-	if (options.fullPage) {
-		await page.client.send("Emulation.clearDeviceMetricsOverride");
-	}
-
-	const buffer = Buffer.from(res.data, "base64");
+	const buffer = Buffer.from(response.data, "base64");
 	const uint8 = new Uint8Array(buffer);
 
 	if (options.path) {
@@ -41,11 +78,22 @@ export async function captureScreenshot(
 
 export async function generatePdf(page: Page, options: PDFOptions = {}): Promise<Uint8Array> {
 	await page.init();
-	const res = await page.client.send("Page.printToPDF", {
+
+	const response = await page.client.send("Page.printToPDF", {
+		landscape: options.landscape,
+		displayHeaderFooter: options.displayHeaderFooter,
 		printBackground: options.printBackground ?? true,
+		scale: options.scale,
+		paperWidth: options.paperWidth,
+		paperHeight: options.paperHeight,
+		marginTop: options.marginTop,
+		marginBottom: options.marginBottom,
+		marginLeft: options.marginLeft,
+		marginRight: options.marginRight,
+		pageRanges: options.pageRanges,
 	});
 
-	const buffer = Buffer.from(res.data, "base64");
+	const buffer = Buffer.from(response.data, "base64");
 	const uint8 = new Uint8Array(buffer);
 
 	if (options.path) {
@@ -67,6 +115,7 @@ export async function blockPageResources(
 
 export async function getPerformanceMetrics(page: Page): Promise<Record<string, number>> {
 	await page.init();
+	await page.client.send("Performance.enable");
 	const res = await page.client.send("Performance.getMetrics");
 	const result: Record<string, number> = {};
 	for (const metric of res.metrics) {

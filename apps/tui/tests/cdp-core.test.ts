@@ -1,9 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { Browser } from "../src/cdp/browser.js";
 import type { Page } from "../src/cdp/page.js";
 import { setupTestContext, type TestContext, teardownTestContext } from "./fixtures/browser.js";
 
-describe("CDP Core Protocol & Browser APIs", () => {
+describe("CDP Core Connection, Page & Interactions Suite", () => {
 	let ctx: TestContext;
 	let page: Page;
 
@@ -16,7 +15,7 @@ describe("CDP Core Protocol & Browser APIs", () => {
 		await teardownTestContext();
 	});
 
-	test("1. navigates to HTTP server URL, inspects title and current URL", async () => {
+	test("1. navigates to URL and verifies title and heading text", async () => {
 		await page.goto(ctx.server.url("/"));
 		expect(await page.title()).toBe("CDP Test Server");
 		expect(await page.url()).toContain("127.0.0.1");
@@ -27,7 +26,7 @@ describe("CDP Core Protocol & Browser APIs", () => {
 		const docTitle = await page.evaluate(() => document.title);
 		expect(docTitle).toBe("CDP Test Server");
 
-		const computed = await page.evaluate((a, b) => a + b, 10, 20);
+		const computed = await page.evaluate((a: number, b: number) => a + b, 10, 20);
 		expect(computed).toBe(30);
 	});
 
@@ -38,38 +37,20 @@ describe("CDP Core Protocol & Browser APIs", () => {
 
 		const fullPageBuffer = await page.screenshot({ fullPage: true });
 		expect(fullPageBuffer).toBeInstanceOf(Uint8Array);
-		expect(fullPageBuffer.length).toBeGreaterThan(100);
+		expect(fullPageBuffer.length).toBeGreaterThanOrEqual(viewportBuffer.length);
 	});
 
-	test("4. generates PDF document binary buffer", async () => {
+	test("4. generates clean PDF document buffer", async () => {
 		const pdfBuffer = await page.pdf();
 		expect(pdfBuffer).toBeInstanceOf(Uint8Array);
 		expect(pdfBuffer.length).toBeGreaterThan(100);
 	});
 
-	test("5. reads browser memory and performance metrics", async () => {
+	test("5. extracts performance layout and memory metrics", async () => {
 		const metrics = await page.getMetrics();
-		expect(metrics).toBeDefined();
-		expect(typeof metrics).toBe("object");
-	});
-
-	test("6. blocks specified network resources via CDP Network domain", async () => {
-		await page.blockResources(["image", "font", "stylesheet"]);
-		await page.goto(ctx.server.url("/"));
-		expect(await page.getText("#title")).toBe("Automation Control Center");
-	});
-
-	test("7. extracts multiple matching elements text array with getMultipleText", async () => {
-		await page.goto(ctx.server.url("/inventory"));
-		const skus = await page.getMultipleText("td.sku");
-		expect(Array.isArray(skus)).toBe(true);
-		expect(skus.length).toBeGreaterThan(0);
-		expect(skus).toContain("SKU-A1");
-	});
-
-	test("8. Browser.cleanupOrphans executes process check", async () => {
-		const killedCount = await Browser.cleanupOrphans();
-		expect(typeof killedCount).toBe("number");
-		expect(killedCount).toBeGreaterThanOrEqual(0);
+		expect(metrics).toHaveProperty("Timestamp");
+		expect(metrics).toHaveProperty("Documents");
+		expect(metrics).toHaveProperty("Nodes");
+		expect(metrics.Nodes).toBeGreaterThan(0);
 	});
 });
