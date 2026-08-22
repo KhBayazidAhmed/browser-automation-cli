@@ -38,7 +38,7 @@ export const INJECTED_MODALS_SRC = `
     const modalOverlay = shadow.getElementById("modal-assert-overlay");
     const modalPreview = shadow.getElementById("modal-assert-preview");
     const modalVal = shadow.getElementById("modal-assert-val");
-    if (modalPreview) modalPreview.innerText = "Selector: " + selector + "\\nText: \\"" + preview + "\\"";
+    if (modalPreview) modalPreview.innerText = 'Selector: ' + selector + String.fromCharCode(10) + 'Text: ' + preview;
     if (modalVal) { modalVal.value = preview; setTimeout(() => modalVal.focus(), 50); }
     assertCallback = onConfirm;
     modalOverlay?.classList.add("open");
@@ -132,53 +132,110 @@ export const INJECTED_MODALS_SRC = `
     showToast("Screenshot step added!");
   });
 
-  const modalWebcamOverlay = shadow.getElementById("modal-webcam-overlay");
-  const btnWebcamPattern = shadow.getElementById("btn-webcam-pattern");
-  const btnWebcamSolid = shadow.getElementById("btn-webcam-solid");
-  const btnWebcamDisable = shadow.getElementById("btn-webcam-reset");
-  const modalWebcamClose = shadow.getElementById("btn-webcam-close");
+  function updateWebcamStatusUI() {
+    const cam = window.__cdpVirtualWebcam;
+    if (!cam) return;
+    const isActive = cam.sourceType && cam.sourceType !== "none";
+    const statusPreview = shadow.getElementById("webcam-status-preview");
+    if (statusPreview) {
+      statusPreview.innerText = "Feed: " + (cam.sourceInfo || "None") + (isActive ? " (640x480 @ 30fps)" : "");
+    }
+    const camBtn = shadow.getElementById("btn-webcam");
+    if (camBtn) {
+      camBtn.classList.toggle("active-cam", isActive);
+      camBtn.innerHTML = ${JSON.stringify(ICONS.camera)} + (isActive ? " Cam (ON)" : " Cam");
+    }
+  }
 
-  btnWebcam?.addEventListener("click", (e) => {
+  shadow.getElementById("btn-webcam")?.addEventListener("click", (e) => {
     e.stopPropagation();
-    modalWebcamOverlay?.classList.add("open");
+    updateWebcamStatusUI();
+    shadow.getElementById("modal-webcam-overlay")?.classList.add("open");
   });
 
-  modalWebcamClose?.addEventListener("click", (e) => {
+  shadow.getElementById("btn-webcam-close")?.addEventListener("click", (e) => {
     e?.stopPropagation();
-    modalWebcamOverlay?.classList.remove("open");
+    shadow.getElementById("modal-webcam-overlay")?.classList.remove("open");
   });
 
-  btnWebcamPattern?.addEventListener("click", (e) => {
+  shadow.getElementById("btn-webcam-pattern")?.addEventListener("click", (e) => {
     e?.stopPropagation();
     if (window.__cdpVirtualWebcam) {
       window.__cdpVirtualWebcam.useTestPattern();
-      btnWebcam?.classList.add("active-cam");
-      if (btnWebcam) btnWebcam.innerHTML = ${JSON.stringify(ICONS.camera)} + " Cam (ON)";
+      updateWebcamStatusUI();
       showToast("Virtual Webcam: Test Pattern Active");
     }
-    modalWebcamOverlay?.classList.remove("open");
+    shadow.getElementById("modal-webcam-overlay")?.classList.remove("open");
   });
 
-  btnWebcamSolid?.addEventListener("click", (e) => {
+  shadow.getElementById("btn-webcam-solid")?.addEventListener("click", (e) => {
     e?.stopPropagation();
     if (window.__cdpVirtualWebcam) {
       window.__cdpVirtualWebcam.useColorFeed("#27272a");
-      btnWebcam?.classList.add("active-cam");
-      if (btnWebcam) btnWebcam.innerHTML = ${JSON.stringify(ICONS.camera)} + " Cam (ON)";
-      showToast("Virtual Webcam: Slate Feed Active");
+      updateWebcamStatusUI();
+      showToast("Virtual Webcam: Solid Slate Feed Active");
     }
-    modalWebcamOverlay?.classList.remove("open");
+    shadow.getElementById("modal-webcam-overlay")?.classList.remove("open");
   });
 
-  btnWebcamDisable?.addEventListener("click", (e) => {
+  const applyWebcamUrl = async (e) => {
+    e?.stopPropagation();
+    const inputUrl = shadow.getElementById("input-webcam-url");
+    const url = inputUrl?.value?.trim();
+    if (!url) {
+      showToast("Please enter a valid video URL", true);
+      return;
+    }
+    if (window.__cdpVirtualWebcam) {
+      showToast("Loading video stream URL...");
+      const stream = await window.__cdpVirtualWebcam.setVideoUrl(url);
+      if (stream) {
+        updateWebcamStatusUI();
+        showToast("Virtual Webcam: Video URL Active");
+        shadow.getElementById("modal-webcam-overlay")?.classList.remove("open");
+      } else {
+        showToast("Failed to load video from URL", true);
+      }
+    }
+  };
+
+  shadow.getElementById("btn-webcam-url-apply")?.addEventListener("click", applyWebcamUrl);
+  shadow.getElementById("input-webcam-url")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      applyWebcamUrl(e);
+    }
+  });
+
+  shadow.getElementById("input-webcam-file")?.addEventListener("change", async (e) => {
+    const file = e.target?.files?.[0];
+    if (!file) return;
+    const fileNameEl = shadow.getElementById("webcam-file-name");
+    if (fileNameEl) fileNameEl.innerText = file.name;
+    if (window.__cdpVirtualWebcam) {
+      showToast("Loading video file: " + file.name);
+      const stream = await window.__cdpVirtualWebcam.setVideoFile(file);
+      if (stream) {
+        updateWebcamStatusUI();
+        showToast("Virtual Webcam: Video File Active (" + file.name + ")");
+        shadow.getElementById("modal-webcam-overlay")?.classList.remove("open");
+      } else {
+        showToast("Failed to load video file", true);
+      }
+    }
+  });
+
+  shadow.getElementById("btn-webcam-reset")?.addEventListener("click", (e) => {
     e?.stopPropagation();
     if (window.__cdpVirtualWebcam) {
       window.__cdpVirtualWebcam.clear();
-      btnWebcam?.classList.remove("active-cam");
-      if (btnWebcam) btnWebcam.innerHTML = ${JSON.stringify(ICONS.camera)} + " Cam";
+      updateWebcamStatusUI();
+      const fileNameEl = shadow.getElementById("webcam-file-name");
+      if (fileNameEl) fileNameEl.innerText = "No file selected";
+      const inputUrl = shadow.getElementById("input-webcam-url");
+      if (inputUrl) inputUrl.value = "";
       showToast("Virtual Webcam Disabled", true);
     }
-    modalWebcamOverlay?.classList.remove("open");
+    shadow.getElementById("modal-webcam-overlay")?.classList.remove("open");
   });
 
   btnUndo?.addEventListener("click", (e) => {

@@ -6,7 +6,9 @@ export const HUD_STYLES_DRAWER = `
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     align-items: center;
     justify-content: center;
     pointer-events: auto;
@@ -15,7 +17,7 @@ export const HUD_STYLES_DRAWER = `
   .drawer-overlay.open { display: flex; }
   .drawer-card {
     background: #111113;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 12px;
     width: 760px;
     max-width: 94vw;
@@ -24,7 +26,7 @@ export const HUD_STYLES_DRAWER = `
     display: flex;
     flex-direction: column;
     color: #fafafa;
-    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.8);
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
     overflow: hidden;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   }
@@ -162,6 +164,21 @@ export const HUD_STYLES_DRAWER = `
   }
   .var-key { color: #fafafa; font-weight: 500; }
   .var-val { color: #a1a1aa; font-family: ui-monospace, monospace; }
+
+  .json-viewer {
+    width: 100%;
+    height: 380px;
+    background: #141416;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    color: #a1a1aa;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 11.5px;
+    line-height: 1.6;
+    padding: 12px 14px;
+    outline: none;
+    resize: none;
+  }
 
   .form-group { margin-bottom: 12px; }
   .form-label { display: block; font-size: 11.5px; font-weight: 500; color: #a1a1aa; margin-bottom: 5px; }

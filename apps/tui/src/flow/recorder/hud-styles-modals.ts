@@ -7,6 +7,8 @@ export const HUD_STYLES_MODALS = `
     width: 100vw;
     height: 100vh;
     background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     align-items: center;
     justify-content: center;
     pointer-events: auto;
@@ -15,20 +17,20 @@ export const HUD_STYLES_MODALS = `
   .modal-overlay.open { display: flex; }
   .modal-card {
     background: #111113;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 12px;
     width: 480px;
     max-width: 90vw;
     padding: 20px;
     color: #fafafa;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   }
   .modal-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
   .modal-desc { font-size: 11.5px; color: #71717a; margin-bottom: 16px; }
   .modal-row { margin-bottom: 12px; }
   .modal-label { display: block; font-size: 11.5px; font-weight: 500; color: #a1a1aa; margin-bottom: 4px; }
-  .modal-input {
+  .modal-input, .modal-select {
     width: 100%;
     background: #18181b;
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -37,12 +39,13 @@ export const HUD_STYLES_MODALS = `
     border-radius: 6px;
     font-size: 12px;
     outline: none;
+    font-family: inherit;
     transition: border-color 0.1s ease;
   }
-  .modal-input:focus { border-color: rgba(255, 255, 255, 0.3); }
+  .modal-input:focus, .modal-select:focus { border-color: rgba(255, 255, 255, 0.3); }
   .modal-preview {
     font-size: 11px;
-    color: #71717a;
+    color: #a1a1aa;
     background: #18181b;
     border: 1px solid rgba(255, 255, 255, 0.06);
     padding: 8px 10px;
@@ -51,7 +54,7 @@ export const HUD_STYLES_MODALS = `
     max-height: 80px;
     overflow-y: auto;
     margin-top: 4px;
-    font-family: ui-monospace, monospace;
+    font-family: ui-monospace, SFMono-Regular, monospace;
   }
   .modal-actions {
     display: flex;
@@ -68,7 +71,8 @@ export const HUD_STYLES_MODALS = `
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
-    transition: background 0.1s ease;
+    font-family: inherit;
+    transition: background 0.1s ease, color 0.1s ease;
   }
   .modal-btn:hover { background: #e4e4e7; }
   .modal-btn-cancel {
