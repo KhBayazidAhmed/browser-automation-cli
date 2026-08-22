@@ -19,11 +19,11 @@ describe("Virtual Webcam & MediaStream Injection Suite", () => {
 		});
 		await page.goto(ctx.server.url("/forms"));
 		await page.waitForSelector("#__cdp_recorder_hud__");
-	});
+	}, 15000);
 
 	afterAll(async () => {
 		await teardownTestContext(ctx);
-	});
+	}, 15000);
 
 	test("1. provides CDP Virtual Webcam device in enumerateDevices", async () => {
 		const devices = await ctx.page.evaluate(`
@@ -73,35 +73,100 @@ describe("Virtual Webcam & MediaStream Injection Suite", () => {
 		expect((switched as any).hasStream).toBe(true);
 	});
 
-	test("4. opens virtual webcam modal from HUD toolbar and allows switching feeds", async () => {
-		const modalCheck = await ctx.page.evaluate(`
+	test("4. switches virtual webcam feed to solid color feed", async () => {
+		const switched = await ctx.page.evaluate(`
 			(() => {
+				if (!window.__cdpVirtualWebcam) return false;
+				window.__cdpVirtualWebcam.useColorFeed("#3b82f6");
+				return {
+					sourceType: window.__cdpVirtualWebcam.sourceType,
+					sourceInfo: window.__cdpVirtualWebcam.sourceInfo,
+					hasStream: Boolean(window.__cdpVirtualWebcam.stream)
+				};
+			})()
+		`);
+
+		expect((switched as any).sourceType).toBe("solid");
+		expect((switched as any).sourceInfo).toContain("#3b82f6");
+		expect((switched as any).hasStream).toBe(true);
+	});
+
+	test("5. sets virtual webcam source to video URL", async () => {
+		const result = await ctx.page.evaluate(`
+			(async () => {
+				if (!window.__cdpVirtualWebcam) return null;
+				await window.__cdpVirtualWebcam.setVideoUrl("https://example.com/demo.mp4");
+				return {
+					sourceType: window.__cdpVirtualWebcam.sourceType,
+					sourceInfo: window.__cdpVirtualWebcam.sourceInfo,
+					hasStream: Boolean(window.__cdpVirtualWebcam.stream)
+				};
+			})()
+		`);
+
+		expect((result as any).sourceType).toBe("url");
+		expect((result as any).sourceInfo).toContain("URL:");
+		expect((result as any).hasStream).toBe(true);
+	});
+
+	test("6. sets virtual webcam source to local video file", async () => {
+		const result = await ctx.page.evaluate(`
+			(async () => {
+				if (!window.__cdpVirtualWebcam) return null;
+				const dummyBlob = new Blob(["video-sample"], { type: "video/mp4" });
+				const dummyFile = new File([dummyBlob], "custom-recording.mp4", { type: "video/mp4" });
+				await window.__cdpVirtualWebcam.setVideoFile(dummyFile);
+				return {
+					sourceType: window.__cdpVirtualWebcam.sourceType,
+					sourceInfo: window.__cdpVirtualWebcam.sourceInfo,
+					hasStream: Boolean(window.__cdpVirtualWebcam.stream)
+				};
+			})()
+		`);
+
+		expect((result as any).sourceType).toBe("file");
+		expect((result as any).sourceInfo).toContain("custom-recording.mp4");
+		expect((result as any).hasStream).toBe(true);
+	});
+
+	test("7. opens virtual webcam modal and applies video URL via HUD", async () => {
+		const modalCheck = await ctx.page.evaluate(`
+			(async () => {
 				const hud = document.getElementById("__cdp_recorder_hud__");
 				const shadow = hud.shadowRoot;
 				const btnWebcam = shadow.getElementById("btn-webcam");
 				const modalOverlay = shadow.getElementById("modal-webcam-overlay");
-				const btnPattern = shadow.getElementById("btn-webcam-pattern");
+				const inputUrl = shadow.getElementById("input-webcam-url");
+				const btnUrlApply = shadow.getElementById("btn-webcam-url-apply");
+				const preview = shadow.getElementById("webcam-status-preview");
 
-				// Click toolbar cam button
 				btnWebcam.click();
 				const wasOpen = modalOverlay.classList.contains("open");
 
-				// Click test pattern
-				btnPattern.click();
-				const isClosed = !modalOverlay.classList.contains("open");
-				const isBtnActive = btnWebcam.classList.contains("active-cam");
+				inputUrl.value = "https://example.com/test-stream.mp4";
+				btnUrlApply.click();
 
-				return { wasOpen, isClosed, isBtnActive, btnText: btnWebcam.innerText };
+				// Wait a moment for async handler
+				await new Promise(r => setTimeout(r, 100));
+
+				return {
+					wasOpen,
+					isClosed: !modalOverlay.classList.contains("open"),
+					sourceType: window.__cdpVirtualWebcam?.sourceType,
+					btnText: btnWebcam.innerText,
+					previewText: preview.innerText
+				};
 			})()
 		`);
 
 		expect((modalCheck as any).wasOpen).toBe(true);
 		expect((modalCheck as any).isClosed).toBe(true);
-		expect((modalCheck as any).isBtnActive).toBe(true);
+		expect((modalCheck as any).sourceType).toBe("url");
 		expect((modalCheck as any).btnText).toContain("Cam (ON)");
+		expect((modalCheck as any).previewText).toContain("URL:");
 	});
 
-	test("5. clears/disables virtual webcam feed and resets status", async () => {
+	test("8. clears/disables virtual webcam feed and resets status", async () => {
 		const resetCheck = await ctx.page.evaluate(`
 			(() => {
 				const hud = document.getElementById("__cdp_recorder_hud__");
