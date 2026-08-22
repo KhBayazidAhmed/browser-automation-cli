@@ -2,8 +2,10 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import * as p from "@clack/prompts";
 import { Browser } from "../cdp/browser.js";
+import { detectBrowserProfiles } from "../cdp/profiles.js";
 import { startRepl } from "../cli.js";
 import { taskRegistry } from "../tasks/registry.js";
+import { promptProfileSelection } from "./profile-picker.js";
 import { handleRecordWorkflow, handleRunWorkflowSelection } from "./wizard-workflow.js";
 import { loadAllWorkflows, type WorkflowFile } from "./workflow-loader.js";
 
@@ -42,6 +44,11 @@ export async function runInteractiveWizard() {
 					hint: "Live terminal session to control Chrome",
 				},
 				{
+					value: "manage_profiles",
+					label: "👤 Discovered Browser Profiles",
+					hint: "Inspect detected Chrome, Brave, and Edge profiles",
+				},
+				{
 					value: "view_outputs",
 					label: `📁 View Extracted Data & Outputs (${outputFiles.length} files)`,
 					hint: "Inspect JSON results and screenshots",
@@ -72,6 +79,23 @@ export async function runInteractiveWizard() {
 					? `Cleaned up ${count} lingering browser process(es)!`
 					: "Clean: No lingering browser processes found.",
 			);
+			continue;
+		}
+
+		if (action === "manage_profiles") {
+			const profiles = detectBrowserProfiles();
+			if (profiles.length === 0) {
+				p.log.warn("No existing browser profiles detected in default system paths.");
+			} else {
+				p.log.success(`Found ${profiles.length} browser profile(s):`);
+				const profileListText = profiles
+					.map(
+						(prof, i) =>
+							`[${i + 1}] ${prof.displayName}\n    ID: ${prof.id}\n    Path: ${prof.profilePath}`,
+					)
+					.join("\n\n");
+				p.note(profileListText, "Detected System Profiles");
+			}
 			continue;
 		}
 
@@ -122,6 +146,9 @@ export async function runInteractiveWizard() {
 
 			if (p.isCancel(selectedTaskId)) continue;
 
+			const profileChoice = await promptProfileSelection("Choose profile for task execution:");
+			if (!profileChoice) continue;
+
 			const isHeaded = await p.confirm({
 				message: "Open in visible Chrome window?",
 				initialValue: false,
@@ -132,7 +159,15 @@ export async function runInteractiveWizard() {
 			const s = p.spinner();
 			s.start(`Running task ${selectedTaskId}...`);
 
-			const result = await taskRegistry.runTask(selectedTaskId, {}, { headless: !isHeaded });
+			const result = await taskRegistry.runTask(
+				selectedTaskId,
+				{},
+				{
+					headless: !isHeaded,
+					userDataDir: profileChoice.userDataDir,
+					profileDirectory: profileChoice.profileDirectory,
+				},
+			);
 
 			if (result.success) {
 				s.stop(`Task completed successfully in ${result.durationMs}ms!`);
@@ -142,6 +177,9 @@ export async function runInteractiveWizard() {
 		}
 
 		if (action === "open_repl") {
+			const profileChoice = await promptProfileSelection("Choose profile for REPL:");
+			if (!profileChoice) continue;
+
 			const isHeaded = await p.confirm({
 				message: "Open visible Chrome window for REPL?",
 				initialValue: false,
@@ -150,7 +188,11 @@ export async function runInteractiveWizard() {
 			if (p.isCancel(isHeaded)) continue;
 
 			p.log.info("Starting browser session... Type 'exit' to return to wizard.");
-			await startRepl({ headless: !isHeaded });
+			await startRepl({
+				headless: !isHeaded,
+				userDataDir: profileChoice.userDataDir,
+				profileDirectory: profileChoice.profileDirectory,
+			});
 		}
 
 		if (action === "view_outputs") {

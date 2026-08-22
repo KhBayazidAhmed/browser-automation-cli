@@ -13,12 +13,18 @@ const colors = {
 	magenta: "\x1b[35m",
 };
 
-export async function startRepl(options: { headless?: boolean } = {}) {
+export async function startRepl(
+	options: { headless?: boolean; userDataDir?: string; profileDirectory?: string } = {},
+) {
 	console.log(
 		`\n${colors.bold}${colors.cyan}⚡ Launching Chrome for Interactive CDP Session...${colors.reset}`,
 	);
 
-	const browser = await Browser.launch({ headless: options.headless ?? false });
+	const browser = await Browser.launch({
+		headless: options.headless ?? false,
+		userDataDir: options.userDataDir,
+		profileDirectory: options.profileDirectory,
+	});
 	const page = await browser.newPage();
 
 	console.log(

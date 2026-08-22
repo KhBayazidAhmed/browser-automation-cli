@@ -41,7 +41,7 @@ export class TaskRegistry {
 	async run(
 		taskId: string,
 		args: Record<string, string | boolean | number> = {},
-		options: { headless?: boolean } = {},
+		options: { headless?: boolean; userDataDir?: string; profileDirectory?: string } = {},
 	): Promise<TaskExecutionResult> {
 		return this.runTask(taskId, args, options);
 	}
@@ -49,7 +49,7 @@ export class TaskRegistry {
 	async runTask(
 		taskId: string,
 		args: Record<string, string | boolean | number> = {},
-		options: { headless?: boolean } = {},
+		options: { headless?: boolean; userDataDir?: string; profileDirectory?: string } = {},
 	): Promise<TaskExecutionResult> {
 		const task = this.get(taskId);
 		if (!task) {
@@ -85,7 +85,11 @@ export class TaskRegistry {
 		let browser: Browser | null = null;
 
 		try {
-			browser = await Browser.launch({ headless: options.headless ?? true });
+			browser = await Browser.launch({
+				headless: options.headless ?? true,
+				userDataDir: options.userDataDir,
+				profileDirectory: options.profileDirectory,
+			});
 			const page = await browser.newPage();
 
 			const data = await task.run({
@@ -99,24 +103,23 @@ export class TaskRegistry {
 			const durationMs = Math.round(performance.now() - startTime);
 
 			console.log(
-				`\n${colors.green}${colors.bold}✓ Task completed successfully in ${durationMs}ms!${colors.reset}\n`,
+				`\n${colors.green}✓ Task completed successfully in ${durationMs}ms!${colors.reset}\n`,
 			);
 
 			return {
-				taskId,
 				success: true,
-				durationMs,
 				data,
+				durationMs,
 			};
 		} catch (err: unknown) {
 			const durationMs = Math.round(performance.now() - startTime);
-			const errorMessage = err instanceof Error ? err.message : String(err);
-			log.error(`Task failed: ${errorMessage}`);
+			const msg = err instanceof Error ? err.message : String(err);
+			console.log(`\n${colors.red}✗ Task failed after ${durationMs}ms: ${msg}${colors.reset}\n`);
+
 			return {
-				taskId,
 				success: false,
 				durationMs,
-				error: errorMessage,
+				error: msg,
 			};
 		} finally {
 			if (browser) {

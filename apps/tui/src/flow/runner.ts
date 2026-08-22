@@ -15,7 +15,11 @@ export class FlowRunner {
 	static async run(
 		flow: FlowDefinition,
 		overrideVars: Record<string, unknown> = {},
-		options: { headless?: boolean } = {},
+		options: {
+			headless?: boolean;
+			userDataDir?: string;
+			profileDirectory?: string;
+		} = {},
 	): Promise<FlowExecutionResult> {
 		const outputDir = join(process.cwd(), "output");
 		if (!existsSync(outputDir)) {
@@ -37,7 +41,11 @@ export class FlowRunner {
 		let browser: Browser | null = null;
 
 		try {
-			browser = await Browser.launch({ headless: isHeadless });
+			browser = await Browser.launch({
+				headless: isHeadless,
+				userDataDir: options.userDataDir,
+				profileDirectory: options.profileDirectory,
+			});
 			const page = await browser.newPage();
 
 			if (flow.blockMedia) {

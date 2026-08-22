@@ -1,4 +1,4 @@
-import { Browser } from "./cdp/index.js";
+import { Browser, detectBrowserProfiles, prepareProfileLaunch } from "./cdp/index.js";
 import { startRepl } from "./cli.js";
 import { FlowRecorder } from "./flow/recorder.js";
 import { FlowRunner } from "./flow/runner.js";
@@ -8,21 +8,93 @@ import { runInteractiveWizard } from "./tui/wizard.js";
 
 const args = process.argv.slice(2);
 
+function extractProfileConfig(cliArgs: string[]): {
+	userDataDir?: string;
+	profileDirectory?: string;
+} {
+	const directMode = cliArgs.includes("--direct-profile");
+
+	const customUserDataArg = cliArgs.find((a) => a.startsWith("--user-data-dir="));
+	const customProfileDirArg = cliArgs.find(
+		(a) => a.startsWith("--profile-directory=") || a.startsWith("--profile-dir="),
+	);
+
+	if (customUserDataArg) {
+		return {
+			userDataDir: customUserDataArg.split("=")[1],
+			profileDirectory: customProfileDirArg ? customProfileDirArg.split("=")[1] : undefined,
+		};
+	}
+
+	const profileArg = cliArgs.find((a) => a.startsWith("--profile="));
+	if (profileArg) {
+		const target = profileArg.split("=")[1]?.toLowerCase() || "";
+		const profiles = detectBrowserProfiles();
+		const matched = profiles.find(
+			(p) =>
+				p.id.toLowerCase() === target ||
+				p.profileDir.toLowerCase() === target ||
+				p.browserName.toLowerCase().includes(target) ||
+				p.displayName.toLowerCase().includes(target),
+		);
+
+		if (matched) {
+			console.log(`\x1b[36mℹ Using Browser Profile: ${matched.displayName}\x1b[0m`);
+			return prepareProfileLaunch(matched, directMode ? "direct" : "clone");
+		}
+		console.warn(
+			`\x1b[33m⚠ Profile matching "${target}" not found. Falling back to clean profile.\x1b[0m`,
+		);
+	}
+
+	return {};
+}
+
 async function main() {
 	const isRepl = args.includes("repl");
 	const isRecord = args[0] === "record";
 	const isFlow = args[0] === "flow" && Boolean(args[1]);
+	const isProfilesList = args[0] === "profiles" || (args[0] === "profile" && args[1] === "list");
 	const isTasksList = args.includes("tasks") || (args[0] === "task" && args[1] === "list");
 	const isTaskRun = args[0] === "task" || args[0] === "run";
 	const isHeaded = args.includes("--headed") || args.includes("--headless=false");
 	const urlArgIndex = args.indexOf("--url");
 	const screenshotArgIndex = args.indexOf("--screenshot");
 
-	// Record Flow Command (e.g. bun src/index.ts record workflows/my-flow.json https://news.ycombinator.com)
+	// Profile config from CLI flags
+	const profileConfig = extractProfileConfig(args);
+
+	// List Discovered Profiles Command (e.g. bun src/index.ts profiles)
+	if (isProfilesList) {
+		const profiles = detectBrowserProfiles();
+		console.log("\n👤 Discovered System Browser Profiles:");
+		console.log("═══════════════════════════════════════════════════════════════════");
+		if (profiles.length === 0) {
+			console.log("  No standard Chrome/Brave/Edge profiles discovered.");
+		} else {
+			for (const p of profiles) {
+				console.log(`\n• \x1b[1m\x1b[36m${p.displayName}\x1b[0m`);
+				console.log(`  Profile ID:   \x1b[33m--profile=${p.id}\x1b[0m`);
+				console.log(`  Directory:    \x1b[2m${p.profilePath}\x1b[0m`);
+			}
+		}
+		console.log("\n═══════════════════════════════════════════════════════════════════");
+		console.log(
+			"Use in any command: \x1b[32mbun src/index.ts <record|flow|task|repl> --profile=<id>\x1b[0m\n",
+		);
+		process.exit(0);
+	}
+
+	// Record Flow Command (e.g. bun src/index.ts record workflows/my-flow.json https://news.ycombinator.com --profile=google-chrome-profile-1)
 	if (isRecord) {
-		const outputPath = args[1] || `workflows/recorded-${Date.now()}.json`;
-		const initialUrl = args[2] || "https://news.ycombinator.com";
-		await FlowRecorder.record(outputPath, initialUrl);
+		const outputPath =
+			args[1] && !args[1].startsWith("--") ? args[1] : `workflows/recorded-${Date.now()}.json`;
+		const initialUrl =
+			args[2] && !args[2].startsWith("--") ? args[2] : "https://news.ycombinator.com";
+		await FlowRecorder.record(outputPath, initialUrl, {
+			userDataDir: profileConfig.userDataDir,
+			profileDirectory: profileConfig.profileDirectory,
+		});
 		process.exit(0);
 	}
 
@@ -46,6 +118,13 @@ async function main() {
 		const overrideVars: Record<string, any> = {};
 		for (let i = 2; i < args.length; i++) {
 			const raw = args[i] || "";
+			if (
+				raw.startsWith("--profile") ||
+				raw.startsWith("--user-data-dir") ||
+				raw.startsWith("--headed")
+			) {
+				continue;
+			}
 			const cleaned = raw.startsWith("--") ? raw.slice(2) : raw;
 			const [k, v] = cleaned.split("=");
 			if (k && v !== undefined) {
@@ -56,6 +135,8 @@ async function main() {
 
 		const result = await FlowRunner.run(flowDef, overrideVars, {
 			headless: !isHeaded,
+			userDataDir: profileConfig.userDataDir,
+			profileDirectory: profileConfig.profileDirectory,
 		});
 		process.exit(result.success ? 0 : 1);
 	}
@@ -76,7 +157,7 @@ async function main() {
 		}
 		console.log("\n═══════════════════════════════════════════════════════════════════");
 		console.log(
-			"Run any task with: \x1b[32mbun src/index.ts task <task-id> [--param=val]\x1b[0m\n",
+			"Run any task with: \x1b[32mbun src/index.ts task <task-id> [--param=val] [--profile=<id>]\x1b[0m\n",
 		);
 		process.exit(0);
 	}
@@ -88,6 +169,13 @@ async function main() {
 
 		for (let i = 2; i < args.length; i++) {
 			const raw = args[i] || "";
+			if (
+				raw.startsWith("--profile") ||
+				raw.startsWith("--user-data-dir") ||
+				raw.startsWith("--headed")
+			) {
+				continue;
+			}
 			const cleaned = raw.startsWith("--") ? raw.slice(2) : raw;
 			const [k, v] = cleaned.split("=");
 			if (k && v !== undefined) {
@@ -98,6 +186,8 @@ async function main() {
 
 		const result = await taskRegistry.runTask(taskId, taskArgs, {
 			headless: !isHeaded,
+			userDataDir: profileConfig.userDataDir,
+			profileDirectory: profileConfig.profileDirectory,
 		});
 		process.exit(result.success ? 0 : 1);
 	}
@@ -124,7 +214,11 @@ async function main() {
 		console.log(`\n🚀 Launching lightweight CDP automation for: ${url}`);
 		let browser: Browser | null = null;
 		try {
-			browser = await Browser.launch({ headless: !isHeaded });
+			browser = await Browser.launch({
+				headless: !isHeaded,
+				userDataDir: profileConfig.userDataDir,
+				profileDirectory: profileConfig.profileDirectory,
+			});
 			const page = await browser.newPage();
 
 			const start = performance.now();
@@ -147,7 +241,11 @@ async function main() {
 	}
 
 	if (isRepl) {
-		await startRepl({ headless: !isHeaded });
+		await startRepl({
+			headless: !isHeaded,
+			userDataDir: profileConfig.userDataDir,
+			profileDirectory: profileConfig.profileDirectory,
+		});
 		return;
 	}
 

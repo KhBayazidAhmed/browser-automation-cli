@@ -8,6 +8,7 @@ export interface LaunchOptions {
 	port?: number;
 	executablePath?: string;
 	userDataDir?: string;
+	profileDirectory?: string;
 	args?: string[];
 	blockAudio?: boolean;
 }
@@ -70,6 +71,7 @@ export async function launchChrome(options: LaunchOptions = {}): Promise<Launche
 	const defaultArgs = [
 		`--remote-debugging-port=${port}`,
 		`--user-data-dir=${userDataDir}`,
+		options.profileDirectory ? `--profile-directory=${options.profileDirectory}` : "",
 		options.headless !== false ? "--headless=new" : "",
 		"--no-first-run",
 		"--no-default-browser-check",

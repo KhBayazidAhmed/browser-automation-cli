@@ -2,6 +2,7 @@ import { join } from "node:path";
 import * as p from "@clack/prompts";
 import { FlowRecorder } from "../flow/recorder.js";
 import { FlowRunner } from "../flow/runner.js";
+import { promptProfileSelection } from "./profile-picker.js";
 import type { WorkflowFile } from "./workflow-loader.js";
 
 export async function handleRecordWorkflow() {
@@ -23,6 +24,9 @@ export async function handleRecordWorkflow() {
 
 	if (p.isCancel(startUrl)) return;
 
+	const profileConfig = await promptProfileSelection("Choose profile for recording session:");
+	if (!profileConfig) return;
+
 	const finalFilename = filename.endsWith(".json") ? filename : `${filename}.json`;
 	const outputPath = join(process.cwd(), "workflows", finalFilename);
 
@@ -31,7 +35,10 @@ export async function handleRecordWorkflow() {
 		"Browse and interact in the browser. Click 'Finish' in the browser or press Enter when done.",
 	);
 
-	await FlowRecorder.record(outputPath, startUrl);
+	await FlowRecorder.record(outputPath, startUrl, {
+		userDataDir: profileConfig.userDataDir,
+		profileDirectory: profileConfig.profileDirectory,
+	});
 	p.log.success(`Workflow saved to: ${outputPath}`);
 }
 
@@ -44,12 +51,35 @@ export async function handleRunWorkflowSelection(selectedWf: WorkflowFile) {
 				value: "run_headed",
 				label: "👁️  Run in Visible Chrome Window (Headed)",
 			},
+			{
+				value: "run_profile",
+				label: "👤 Run with Existing Browser Profile...",
+				hint: "Use your saved logins & cookies",
+			},
 			{ value: "inspect", label: "🔍 Inspect Step-by-Step Breakdown" },
 			{ value: "back", label: "↩  Back" },
 		],
 	});
 
 	if (p.isCancel(viewSteps) || viewSteps === "back") return;
+
+	let userDataDir: string | undefined;
+	let profileDirectory: string | undefined;
+	let isHeaded = viewSteps === "run_headed";
+
+	if (viewSteps === "run_profile") {
+		const profileConfig = await promptProfileSelection("Choose profile for workflow execution:");
+		if (!profileConfig) return;
+		userDataDir = profileConfig.userDataDir;
+		profileDirectory = profileConfig.profileDirectory;
+
+		const headedChoice = await p.confirm({
+			message: "Run in visible browser window?",
+			initialValue: true,
+		});
+		if (p.isCancel(headedChoice)) return;
+		isHeaded = headedChoice;
+	}
 
 	if (viewSteps === "inspect") {
 		const stepSummary = selectedWf.flow.steps
@@ -76,11 +106,18 @@ export async function handleRunWorkflowSelection(selectedWf: WorkflowFile) {
 		if (!runAfterInspect || p.isCancel(runAfterInspect)) return;
 	}
 
-	const isHeaded = viewSteps === "run_headed";
 	const s = p.spinner();
 	s.start(`Executing workflow: ${selectedWf.flow.name}...`);
 
-	const result = await FlowRunner.run(selectedWf.flow, {}, { headless: !isHeaded });
+	const result = await FlowRunner.run(
+		selectedWf.flow,
+		{},
+		{
+			headless: !isHeaded,
+			userDataDir,
+			profileDirectory,
+		},
+	);
 
 	if (result.success) {
 		s.stop(`Completed in ${result.totalDurationMs}ms!`);

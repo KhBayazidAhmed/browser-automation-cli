@@ -19,6 +19,11 @@ export class FlowRecorder {
 	static async record(
 		outputPath: string,
 		initialUrl = "https://news.ycombinator.com",
+		options: {
+			userDataDir?: string;
+			profileDirectory?: string;
+			headless?: boolean;
+		} = {},
 	): Promise<FlowDefinition> {
 		const steps: FlowStep[] = [];
 		const variables: Record<string, unknown> = {};
@@ -41,7 +46,9 @@ export class FlowRecorder {
 
 		try {
 			browser = await Browser.launch({
-				headless: false,
+				headless: options.headless ?? false,
+				userDataDir: options.userDataDir,
+				profileDirectory: options.profileDirectory,
 				args: ["--start-maximized"],
 			});
 
@@ -150,26 +157,21 @@ export class FlowRecorder {
 			if (browser) await browser.close();
 		}
 
-		const flowDefinition: FlowDefinition = {
-			name: flowName,
-			description: `Recorded on ${new Date().toLocaleString()}`,
-			variables,
-			steps,
-		};
-
-		const targetDir = dirname(outputPath);
-		if (targetDir && !existsSync(targetDir)) {
-			mkdirSync(targetDir, { recursive: true });
+		// Ensure workflows directory exists
+		const dir = dirname(outputPath);
+		if (!existsSync(dir)) {
+			mkdirSync(dir, { recursive: true });
 		}
 
-		await Bun.write(outputPath, JSON.stringify(flowDefinition, null, 2));
+		const flowDef: FlowDefinition = {
+			name: flowName,
+			description: `Recorded on ${new Date().toLocaleString()}`,
+			steps,
+			variables,
+		};
 
-		console.log(`\n${colors.bold}${colors.green}✓ Recording complete!${colors.reset}`);
-		console.log(`  📁 Saved ${steps.length} steps to: ${colors.bold}${outputPath}${colors.reset}`);
-		console.log(
-			`  🚀 Replay anytime with: ${colors.cyan}bun run flow ${outputPath}${colors.reset}\n`,
-		);
-
-		return flowDefinition;
+		await Bun.write(outputPath, JSON.stringify(flowDef, null, 2));
+		console.log(`\n${colors.green}✓ Saved recorded flow to:${colors.reset} ${outputPath}`);
+		return flowDef;
 	}
 }
