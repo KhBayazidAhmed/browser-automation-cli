@@ -1,49 +1,35 @@
-# Starlight Starter Kit: Basics
+# Browser Automation CLI Documentation Site
 
-[![Built with Starlight](https://astro.badg.es/v2/built-with-starlight/tiny.svg)](https://starlight.astro.build)
+Documentation site for **Browser Automation CLI**, built with [Astro](https://astro.build) and [Starlight](https://starlight.astro.build).
 
-```
-bun create astro@latest -- --template starlight
-```
+## 🚀 Running the Documentation Locally
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+From the root repository:
 
-## 🚀 Project Structure
-
-Inside of your Astro + Starlight project, you'll see the following folders and files:
-
-```
-.
-├── public/
-├── src/
-│   ├── assets/
-│   ├── content/
-│   │   └── docs/
-│   └── content.config.ts
-├── astro.config.mjs
-├── package.json
-└── tsconfig.json
+```bash
+bun --filter apps-docs dev
 ```
 
-Starlight looks for `.md` or `.mdx` files in the `src/content/docs/` directory. Each file is exposed as a route based on its file name.
+Or from within `apps/docs`:
 
-Images can be added to `src/assets/` and embedded in Markdown with a relative link.
+```bash
+cd apps/docs
+bun dev
+```
 
-Static assets, like favicons, can be placed in the `public/` directory.
+Open [http://localhost:4321](http://localhost:4321) to view the documentation site in your browser.
 
-## 🧞 Commands
+## 🏗 Building for Production
 
-All commands are run from the root of the project, from a terminal:
+```bash
+bun --filter apps-docs build
+```
 
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `bun install`             | Installs dependencies                            |
-| `bun dev`             | Starts local dev server at `localhost:4321`      |
-| `bun build`           | Build your production site to `./dist/`          |
-| `bun preview`         | Preview your build locally, before deploying     |
-| `bun astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `bun astro -- --help` | Get help using the Astro CLI                     |
+The production output will be generated in `apps/docs/dist/`.
 
-## 👀 Want to learn more?
+## 📁 Content Structure
 
-Check out [Starlight’s docs](https://starlight.astro.build/), read [the Astro documentation](https://docs.astro.build), or jump into the [Astro Discord server](https://astro.build/chat).
+- `src/content/docs/index.mdx` — Landing page with hero and feature grid.
+- `src/content/docs/getting-started/` — Introduction and Quick Start guide.
+- `src/content/docs/guides/` — Step-by-step guides (Interactive Studio "The Easy Way", Visual Live Recorder, Workflow Replay, REPL, Built-in Tasks).
+- `src/content/docs/reference/` — CLI commands, flags, and workflow JSON schema.
