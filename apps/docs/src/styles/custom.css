@@ -1,0 +1,152 @@
+/* Starlight Clean Pre-designed Theme: Modern Slate & Ocean Blue */
+
+:root {
+	/* Pre-designed Accent Color Palette */
+	--sl-color-accent-low: #082f49;
+	--sl-color-accent: #0284c7;
+	--sl-color-accent-high: #7dd3fc;
+
+	/* Pre-designed Neutral Gray Scale (Tailwind Slate) */
+	--sl-color-white: #ffffff;
+	--sl-color-gray-1: #f1f5f9;
+	--sl-color-gray-2: #cbd5e1;
+	--sl-color-gray-3: #94a3b8;
+	--sl-color-gray-4: #64748b;
+	--sl-color-gray-5: #334155;
+	--sl-color-gray-6: #1e293b;
+	--sl-color-black: #0f172a;
+
+	/* Backgrounds & Structure */
+	--sl-color-bg: #0b0f19;
+	--sl-color-bg-sidebar: #080c14;
+	--sl-color-bg-nav: rgba(11, 15, 25, 0.9);
+	--sl-color-hairline: rgba(255, 255, 255, 0.08);
+
+	/* Clean, Crisp Font Family */
+	--sl-font:
+		system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell,
+		sans-serif;
+	--sl-font-mono:
+		ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+:root[data-theme="light"] {
+	--sl-color-accent-low: #e0f2fe;
+	--sl-color-accent: #0284c7;
+	--sl-color-accent-high: #0369a1;
+
+	--sl-color-white: #0f172a;
+	--sl-color-gray-1: #1e293b;
+	--sl-color-gray-2: #334155;
+	--sl-color-gray-3: #64748b;
+	--sl-color-gray-4: #94a3b8;
+	--sl-color-gray-5: #cbd5e1;
+	--sl-color-gray-6: #f1f5f9;
+	--sl-color-black: #ffffff;
+
+	--sl-color-bg: #ffffff;
+	--sl-color-bg-sidebar: #f8fafc;
+	--sl-color-bg-nav: rgba(255, 255, 255, 0.9);
+	--sl-color-hairline: rgba(0, 0, 0, 0.08);
+}
+
+/* Header Navbar */
+header.header {
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+}
+
+/* Hero Section */
+.hero {
+	padding: 2.5rem 0 2rem;
+}
+
+.hero .tagline {
+	font-size: 1.15rem;
+	line-height: 1.6;
+	color: var(--sl-color-gray-2);
+	max-width: 54ch;
+	margin: 1rem auto 1.5rem;
+}
+
+/* Feature Cards Grid */
+.card-grid {
+	gap: 1.25rem;
+	margin-top: 2rem;
+}
+
+.card {
+	padding: 1.25rem 1.5rem;
+	border-radius: 0.75rem;
+	border: 1px solid var(--sl-color-hairline);
+	background: var(--sl-color-bg-sidebar);
+	transition:
+		border-color 0.2s ease,
+		transform 0.2s ease;
+}
+
+.card:hover {
+	border-color: var(--sl-color-accent);
+	transform: translateY(-2px);
+}
+
+.card .title {
+	display: flex;
+	align-items: center;
+	gap: 0.625rem;
+	font-size: 1.05rem;
+	font-weight: 600;
+	margin-bottom: 0.5rem;
+}
+
+.card .icon {
+	width: 1.35rem;
+	height: 1.35rem;
+	color: var(--sl-color-accent-high);
+	flex-shrink: 0;
+}
+
+.card .body,
+.card p:not(.title) {
+	font-size: 0.9rem;
+	line-height: 1.6;
+	color: var(--sl-color-gray-2);
+	margin: 0;
+}
+
+/* Action Buttons */
+.hero .actions .action.primary {
+	border-radius: 0.5rem;
+	font-weight: 600;
+}
+
+.hero .actions .action.minimal {
+	border-radius: 0.5rem;
+}
+
+/* Tables */
+table {
+	width: 100%;
+	border-collapse: collapse;
+	margin: 1.5rem 0;
+	font-size: 0.9rem;
+}
+
+table th {
+	text-align: left;
+	padding: 0.75rem 1rem;
+	border-bottom: 2px solid var(--sl-color-hairline);
+	font-weight: 600;
+	color: var(--sl-color-white);
+}
+
+table td {
+	padding: 0.75rem 1rem;
+	border-bottom: 1px solid var(--sl-color-hairline);
+}
+
+/* Code */
+pre,
+code {
+	font-size: 0.875rem;
+}
