@@ -26,13 +26,17 @@ export const INJECTED_DOM_EVENTS_SRC = `
 
   let tooltipRafId = null;
   document.addEventListener("mouseover", (e) => {
-    if (flowState.isPaused || (!isExtractMode && !isListExtractMode && !isAssertMode && !e.shiftKey && !e.altKey)) return;
+    if (!isWaitTargetMode && (flowState.isPaused || (!isExtractMode && !isListExtractMode && !isAssertMode && !e.shiftKey && !e.altKey))) return;
     const target = e.target;
     if (!target || target.closest("#__cdp_recorder_hud__")) return;
     if (target.tagName && (target.tagName.toLowerCase() === "iframe" || target.tagName.toLowerCase() === "frame")) return;
     if (hoveredEl && hoveredEl !== target) hoveredEl.style.outline = "";
     hoveredEl = target;
-    if (isListExtractMode) {
+    if (isWaitTargetMode) {
+      const selector = getBestSelector(target);
+      hoveredEl.style.outline = "2px solid #60a5fa";
+      if (tooltip) { tooltip.style.display = "block"; tooltip.style.transform = \`translate3d(\${e.clientX + 12}px, \${e.clientY + 12}px, 0)\`; tooltip.innerText = \`Target: \${selector}\`; }
+    } else if (isListExtractMode) {
       const containerInfo = findRepeatedContainer(target);
       hoveredEl.style.outline = "2px dashed #38bdf8";
       if (tooltip) { tooltip.style.display = "block"; tooltip.style.transform = \`translate3d(\${e.clientX + 12}px, \${e.clientY + 12}px, 0)\`; tooltip.innerText = \`📊 List: \${containerInfo.selector}\`; }
@@ -61,7 +65,7 @@ export const INJECTED_DOM_EVENTS_SRC = `
   }, true);
 
   const recordPointerActivation = (e) => {
-    if (flowState.isPaused || isExtractMode || isListExtractMode || isAssertMode || e.shiftKey || e.altKey) return;
+    if (flowState.isPaused || isWaitTargetMode || isExtractMode || isListExtractMode || isAssertMode || e.shiftKey || e.altKey) return;
     recordPointerStep(e, e.target);
   };
   document.addEventListener('pointerdown', recordPointerActivation, true);
@@ -71,6 +75,13 @@ export const INJECTED_DOM_EVENTS_SRC = `
     const target = e.target;
     if (!target || target.closest("#__cdp_recorder_hud__")) return;
     if (target.tagName && (target.tagName.toLowerCase() === "iframe" || target.tagName.toLowerCase() === "frame")) return;
+    if (isWaitTargetMode) {
+      const targetSelector = getBestSelector(target);
+      if (!targetSelector) return;
+      e.preventDefault(); e.stopPropagation();
+      submitWaitTargetSelection(targetSelector);
+      return;
+    }
     if (flowState.isPaused) { e.preventDefault(); showToast("⏸️ Action ignored (recording is paused)", true); return; }
     const isExtract = isExtractMode || e.shiftKey;
     const isList = isListExtractMode;
@@ -126,6 +137,13 @@ export const INJECTED_DOM_EVENTS_SRC = `
     }
 
     recordPointerStep(e, target);
+  }, true);
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && isWaitTargetMode) {
+      e.preventDefault();
+      requestWaitTargetCancel();
+    }
   }, true);
 
   document.addEventListener('change', (e) => {

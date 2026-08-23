@@ -22,7 +22,7 @@ export const INJECTED_ADVANCED_RECORDER_SCRIPT = `
     if (saved) flowState = { ...flowState, ...JSON.parse(saved) };
   } catch {}
 
-  let isExtractMode = false, isListExtractMode = false, isAssertMode = false;
+  let isExtractMode = false, isListExtractMode = false, isAssertMode = false, isWaitTargetMode = false;
   let isCollapsed = false, isDrawerOpen = false, extractCount = 0, hoveredEl = null;
 
   function persistState() {
@@ -65,6 +65,7 @@ export const INJECTED_ADVANCED_RECORDER_SCRIPT = `
             isExtractMode,
             isListExtractMode,
             isAssertMode,
+            isWaitTargetMode,
             isPaused: flowState.isPaused,
           }, "*");
         } catch {}
@@ -78,7 +79,12 @@ export const INJECTED_ADVANCED_RECORDER_SCRIPT = `
       if (typeof e.data.isExtractMode === "boolean") isExtractMode = e.data.isExtractMode;
       if (typeof e.data.isListExtractMode === "boolean") isListExtractMode = e.data.isListExtractMode;
       if (typeof e.data.isAssertMode === "boolean") isAssertMode = e.data.isAssertMode;
+      if (typeof e.data.isWaitTargetMode === "boolean") isWaitTargetMode = e.data.isWaitTargetMode;
       if (typeof e.data.isPaused === "boolean") flowState.isPaused = e.data.isPaused;
+    } else if (e.data.type === "__cdp_wait_target_selected__" && isTopWindow && typeof e.data.selector === "string") {
+      applyWaitTargetSelection(e.data.selector);
+    } else if (e.data.type === "__cdp_wait_target_cancel__" && isTopWindow) {
+      cancelWaitTargetSelection();
     } else if (e.data.type === "__cdp_child_record_event__" && isTopWindow && e.data.payload) {
       emitRecordEvent(e.data.payload);
     }
@@ -110,9 +116,20 @@ export const INJECTED_ADVANCED_RECORDER_SCRIPT = `
 
   function updateBadge() {
     const badgeText = shadow.getElementById("badge-text");
-    if (badgeText) badgeText.innerText = (flowState.isPaused ? "PAUSED (" : "REC (") + (flowState.steps || []).length + ")";
+    if (badgeText) badgeText.innerText = flowState.isPaused ? "PAUSED" : "REC";
+    const badgeCount = shadow.getElementById("badge-count");
+    if (badgeCount) badgeCount.innerText = (flowState.steps || []).length;
     const configCount = shadow.getElementById("btn-config-count");
     if (configCount) configCount.innerText = (flowState.steps || []).length;
+    const dataButton = shadow.getElementById("btn-data");
+    const sourceName = flowState.data?.source;
+    const source = sourceName ? flowState.dataSources?.[sourceName] : undefined;
+    dataButton?.classList.toggle("attached", Boolean(source));
+    if (dataButton) {
+      const title = source?.uri ? ("Google Sheet attached: " + source.uri) : "Attach a Google Sheet";
+      dataButton.setAttribute("title", title);
+      dataButton.setAttribute("aria-label", title);
+    }
   }
 
   ${INJECTED_DRAWER_RENDER_SRC}
@@ -152,6 +169,26 @@ export const INJECTED_ADVANCED_RECORDER_SCRIPT = `
     if (toggleBtn) toggleBtn.innerHTML = isCollapsed ? ${JSON.stringify(ICONS.chevronRight)} : ${JSON.stringify(ICONS.chevronLeft)};
   });
 
+  const hudMenus = Array.from(shadow.querySelectorAll(".hud-menu"));
+  for (const menu of hudMenus) {
+    menu.addEventListener("toggle", () => {
+      if (!menu.open) return;
+      for (const otherMenu of hudMenus) if (otherMenu !== menu) otherMenu.open = false;
+    });
+    menu.querySelectorAll(".hud-menu-item").forEach((item) => {
+      item.addEventListener("click", () => { menu.open = false; });
+    });
+  }
+  shadow.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") for (const menu of hudMenus) menu.open = false;
+  });
+  shadow.addEventListener("click", (e) => {
+    if (!e.target?.closest?.(".hud-menu")) for (const menu of hudMenus) menu.open = false;
+  });
+  document.addEventListener("pointerdown", (e) => {
+    if (e.target !== hudContainer) for (const menu of hudMenus) menu.open = false;
+  });
+
   ${INJECTED_EVENT_RECORDER_SRC}
 
   function mountHud() {
@@ -164,7 +201,7 @@ export const INJECTED_ADVANCED_RECORDER_SCRIPT = `
   else mountHud();
 
   window.__cdpSyncState = (s) => {
-    try { flowState = { ...flowState, ...(typeof s === "string" ? JSON.parse(s) : s) }; persistState(); renderDrawer(); } catch {}
+    try { flowState = { ...flowState, ...(typeof s === "string" ? JSON.parse(s) : s) }; persistState(); renderDrawer(); updateBadge(); } catch {}
   };
   window.__cdpHydrate = () => { mountHud(); renderDrawer(); };
 })();

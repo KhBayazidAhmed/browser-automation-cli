@@ -29,6 +29,7 @@ export const HUD_STYLES_MODALS = `
   .modal-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
   .modal-desc { font-size: 11.5px; color: #71717a; margin-bottom: 16px; }
   .modal-row { margin-bottom: 12px; }
+  .modal-field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .modal-label { display: block; font-size: 11.5px; font-weight: 500; color: #a1a1aa; margin-bottom: 4px; }
   .modal-input, .modal-select {
     width: 100%;
@@ -62,6 +63,10 @@ export const HUD_STYLES_MODALS = `
     gap: 8px;
     margin-top: 20px;
   }
+  .modal-actions-between { justify-content: flex-start; }
+  .modal-action-spacer { flex: 1; }
+  .modal-note { margin-top: 10px; color: #a1a1aa; font-size: 10.5px; line-height: 1.45; }
+  .modal-note code { color: #d4d4d8; font-family: ui-monospace, SFMono-Regular, monospace; }
   .modal-btn {
     background: #ffffff;
     border: 1px solid #ffffff;
@@ -81,6 +86,9 @@ export const HUD_STYLES_MODALS = `
     color: #a1a1aa;
   }
   .modal-btn-cancel:hover { background: rgba(255, 255, 255, 0.12); color: #fafafa; }
+  .modal-btn-danger { background: rgba(239, 68, 68, 0.08); border-color: rgba(248, 113, 113, 0.25); color: #fca5a5; }
+  .modal-btn-danger:hover { background: rgba(239, 68, 68, 0.16); color: #fecaca; }
+  @media (max-width: 520px) { .modal-field-grid { grid-template-columns: 1fr; gap: 0; } }
   
   .fields-table {
     width: 100%;

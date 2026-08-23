@@ -173,7 +173,7 @@ describe("Virtual Webcam & MediaStream Injection Suite", () => {
 					wasOpen,
 					isClosed: !modalOverlay.classList.contains("open"),
 					sourceType: window.__cdpVirtualWebcam?.sourceType,
-					btnText: btnWebcam.innerText,
+					btnText: btnWebcam.textContent,
 					previewText: preview.innerText
 				};
 			})()
@@ -182,7 +182,7 @@ describe("Virtual Webcam & MediaStream Injection Suite", () => {
 		expect(modalCheck.wasOpen).toBe(true);
 		expect(modalCheck.isClosed).toBe(true);
 		expect(modalCheck.sourceType).toBe("url");
-		expect(modalCheck.btnText).toContain("Cam (ON)");
+		expect(modalCheck.btnText).toContain("Virtual camera on");
 		expect(modalCheck.previewText).toContain("URL:");
 	});
 
@@ -202,14 +202,14 @@ describe("Virtual Webcam & MediaStream Injection Suite", () => {
 
 				return {
 					isBtnActive: btnWebcam.classList.contains("active-cam"),
-					btnText: btnWebcam.innerText,
+					btnText: btnWebcam.textContent,
 					sourceType: window.__cdpVirtualWebcam?.sourceType
 				};
 			})()
 		`);
 
 		expect(resetCheck.isBtnActive).toBe(false);
-		expect(resetCheck.btnText).toContain("Cam");
+		expect(resetCheck.btnText).toContain("Virtual camera");
 		expect(resetCheck.sourceType).toBe("none");
 	});
 });

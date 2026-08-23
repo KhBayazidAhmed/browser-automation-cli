@@ -8,6 +8,7 @@ describe("Flow Recorder - Actions, Navigation & Controls Suite", () => {
 	const recordedSteps: FlowStep[] = [];
 	let isPaused = false;
 	let finishTriggered = false;
+	let attachedDataSource: Record<string, unknown> | undefined;
 
 	beforeAll(async () => {
 		ctx = await setupTestContext();
@@ -29,6 +30,7 @@ describe("Flow Recorder - Actions, Navigation & Controls Suite", () => {
 					const event = JSON.parse(p.payload);
 					if (event.type === "pause") isPaused = true;
 					else if (event.type === "resume") isPaused = false;
+					else if (event.type === "attachDataSource") attachedDataSource = event;
 					else if (event.type === "undo") recordedSteps.pop();
 					else if (event.type === "click") {
 						recordedSteps.push({
@@ -141,6 +143,58 @@ describe("Flow Recorder - Actions, Navigation & Controls Suite", () => {
 		expect(recordedSteps.length).toBe(initLen + 1);
 		const shotStep = recordedSteps[recordedSteps.length - 1];
 		expect(shotStep?.action).toBe("screenshot");
+	});
+
+	test("4b. groups secondary recorder actions into compact menus", async () => {
+		const menuState = (await ctx.page.evaluate(() => {
+			const hud = document.getElementById("__cdp_recorder_hud__");
+			const shadow = hud?.shadowRoot;
+			const stepMenu = shadow?.getElementById("menu-step") as HTMLDetailsElement | null;
+			const captureMenu = shadow?.getElementById("menu-capture") as HTMLDetailsElement | null;
+			stepMenu?.setAttribute("open", "");
+			return {
+				stepItems: stepMenu?.querySelectorAll(".hud-menu-item").length,
+				captureItems: captureMenu?.querySelectorAll(".hud-menu-item").length,
+				badgeText: shadow?.getElementById("badge-text")?.textContent,
+				badgeCount: shadow?.getElementById("badge-count")?.textContent,
+			};
+		})) as {
+			stepItems?: number;
+			captureItems?: number;
+			badgeText?: string | null;
+			badgeCount?: string | null;
+		};
+
+		expect(menuState.stepItems).toBe(4);
+		expect(menuState.captureItems).toBe(2);
+		expect(menuState.badgeText).toBe("REC");
+		expect(Number(menuState.badgeCount)).toBeGreaterThan(0);
+	});
+
+	test("4c. opens the floating Google Sheets connection form", async () => {
+		const state = await ctx.page.evaluate(() => {
+			const shadow = document.getElementById("__cdp_recorder_hud__")?.shadowRoot;
+			shadow?.getElementById("btn-data")?.click();
+			const sheet = shadow?.getElementById("input-data-sheet") as HTMLInputElement | null;
+			const tab = shadow?.getElementById("input-data-tab") as HTMLInputElement | null;
+			const range = shadow?.getElementById("input-data-range") as HTMLInputElement | null;
+			if (sheet) sheet.value = "https://docs.google.com/spreadsheets/d/1234567890abcdefghijk/edit";
+			if (tab) tab.value = "Leads";
+			if (range) range.value = "A1:F100";
+			shadow?.getElementById("btn-data-attach")?.click();
+			return {
+				buttonExists: Boolean(shadow?.getElementById("btn-data")),
+				modalOpen: shadow?.getElementById("modal-data-overlay")?.classList.contains("open"),
+			};
+		});
+
+		expect(state).toEqual({ buttonExists: true, modalOpen: false });
+		expect(attachedDataSource).toMatchObject({
+			type: "attachDataSource",
+			provider: "google-sheets",
+			tab: "Leads",
+			range: "A1:F100",
+		});
 	});
 
 	test("5. supports pause and resume recording modes", async () => {

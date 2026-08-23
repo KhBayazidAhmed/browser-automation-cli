@@ -100,38 +100,56 @@ export const INJECTED_DRAWER_RENDER_SRC = `
 
   function renderDrawer() {
     updateBadge();
+    if (!isDrawerOpen) return;
     const sub = shadow.getElementById("drawer-subtitle");
+    const stepCount = (flowState.steps || []).length;
+    const varCount = Object.keys(flowState.variables || {}).length;
     if (sub) {
-      const stepCount = (flowState.steps || []).length;
-      const varCount = Object.keys(flowState.variables || {}).length;
-      sub.innerText = "Flow: " + (flowState.name || "Recorded Flow") + " • " + stepCount + " steps • " + varCount + " variables";
+      sub.innerText = "Flow: " + (flowState.name || "Recorded Flow") + " • " + stepCount + " " + (stepCount === 1 ? "step" : "steps") + " • " + varCount + " " + (varCount === 1 ? "variable" : "variables");
     }
-    renderStepsList();
-    renderJsonViewer();
-    renderVarsList();
+    const stepsCount = shadow.getElementById("tab-steps-count");
+    const varsCount = shadow.getElementById("tab-vars-count");
+    if (stepsCount) stepsCount.innerText = stepCount;
+    if (varsCount) varsCount.innerText = varCount;
+    const activeTab = shadow.querySelector(".drawer-tab.active")?.getAttribute("data-tab") || "steps";
+    if (activeTab === "steps") renderStepsList();
+    else if (activeTab === "json") renderJsonViewer();
+    else if (activeTab === "vars") renderVarsList();
   }
 
   function toggleDrawer(open) {
     isDrawerOpen = open !== undefined ? open : !isDrawerOpen;
-    shadow.getElementById("drawer-overlay")?.classList.toggle("open", isDrawerOpen);
-    if (isDrawerOpen) renderDrawer();
-    updateBadge();
+    const overlay = shadow.getElementById("drawer-overlay");
+    overlay?.classList.toggle("open", isDrawerOpen);
+    overlay?.setAttribute("aria-hidden", String(!isDrawerOpen));
+    if (isDrawerOpen) {
+      const triggerFocus = shadow.activeElement;
+      renderDrawer();
+      requestAnimationFrame(() => {
+        if (!shadow.activeElement || shadow.activeElement === triggerFocus) shadow.getElementById("btn-drawer-close")?.focus();
+      });
+    } else {
+      updateBadge();
+      shadow.getElementById("btn-config")?.focus();
+    }
   }
 
   shadow.getElementById("btn-config")?.addEventListener("click", (e) => { e.stopPropagation(); toggleDrawer(); });
   shadow.getElementById("btn-drawer-close")?.addEventListener("click", () => toggleDrawer(false));
   shadow.getElementById("drawer-overlay")?.addEventListener("click", (e) => { if (e.target === shadow.getElementById("drawer-overlay")) toggleDrawer(false); });
+  shadow.addEventListener("keydown", (e) => { if (e.key === "Escape" && isDrawerOpen) toggleDrawer(false); });
 
   shadow.querySelectorAll(".drawer-tab").forEach((tab) => {
     tab.addEventListener("click", () => {
-      shadow.querySelectorAll(".drawer-tab").forEach((t) => t.classList.remove("active"));
+      shadow.querySelectorAll(".drawer-tab").forEach((t) => { t.classList.remove("active"); t.setAttribute("aria-selected", "false"); });
       shadow.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
       tab.classList.add("active");
+      tab.setAttribute("aria-selected", "true");
       const tabKey = tab.getAttribute("data-tab");
       shadow.getElementById("panel-" + tabKey)?.classList.add("active");
-      if (tabKey === "json") renderJsonViewer();
-      if (tabKey === "steps") renderStepsList();
-      if (tabKey === "vars") renderVarsList();
+      const body = shadow.querySelector(".drawer-body");
+      if (body) body.scrollTop = 0;
+      renderDrawer();
     });
   });
 

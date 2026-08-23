@@ -1,6 +1,40 @@
 import { ICONS } from "./hud-icons.js";
 
 export const HUD_TEMPLATE_MODALS = `
+  <!-- Google Sheets Data Source Modal -->
+  <div id="modal-data-overlay" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-data-title">
+    <div class="modal-card">
+      <div id="modal-data-title" class="modal-title">${ICONS.sheets} Attach Google Sheet</div>
+      <div class="modal-desc">Use the first row as column names and run this workflow once for each following row.</div>
+      <div class="modal-row">
+        <label class="modal-label" for="input-data-sheet">Google Sheet URL or spreadsheet ID</label>
+        <input id="input-data-sheet" class="modal-input" placeholder="https://docs.google.com/spreadsheets/d/..." autocomplete="off" />
+      </div>
+      <div class="modal-field-grid">
+        <div class="modal-row">
+          <label class="modal-label" for="input-data-tab">Sheet tab (optional)</label>
+          <input id="input-data-tab" class="modal-input" placeholder="Leads" autocomplete="off" />
+        </div>
+        <div class="modal-row">
+          <label class="modal-label" for="input-data-range">Range (optional)</label>
+          <input id="input-data-range" class="modal-input" placeholder="A1:H500" autocomplete="off" />
+        </div>
+      </div>
+      <div class="modal-row">
+        <label class="modal-label" for="input-data-account">Google account email (optional)</label>
+        <input id="input-data-account" class="modal-input" type="email" placeholder="you@example.com" autocomplete="off" />
+      </div>
+      <div id="modal-data-current" class="modal-preview" hidden></div>
+      <div class="modal-note">Authorize the account first with <code>browser-cli sheets login</code>. OAuth tokens are never stored in the workflow.</div>
+      <div class="modal-actions modal-actions-between">
+        <button id="btn-data-detach" class="modal-btn modal-btn-danger" hidden>Detach</button>
+        <span class="modal-action-spacer"></span>
+        <button id="btn-data-cancel" class="modal-btn modal-btn-cancel">Cancel</button>
+        <button id="btn-data-attach" class="modal-btn">Attach sheet</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Virtual Webcam Injection Modal -->
   <div id="modal-webcam-overlay" class="modal-overlay">
     <div class="modal-card">

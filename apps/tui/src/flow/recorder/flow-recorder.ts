@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { basename, dirname } from "node:path";
 import type * as readline from "node:readline";
 import { Browser } from "../../cdp/browser.js";
+import { googleSheetsUriFromInput } from "../../data/uri.js";
 import type { FlowDefinition, FlowStep } from "../types.js";
 import { INJECTED_ADVANCED_RECORDER_SCRIPT } from "./injected-recorder-script.js";
 import { handleRecordedEvent } from "./recorder-event-bridge.js";
@@ -45,6 +46,8 @@ export class FlowRecorder {
 	): Promise<FlowDefinition> {
 		const steps: FlowStep[] = [];
 		const variables: Record<string, unknown> = {};
+		let data: FlowDefinition["data"];
+		let dataSources: NonNullable<FlowDefinition["dataSources"]> = {};
 		let lastUrl = "";
 		let isFinished = false;
 		let isPaused = false;
@@ -61,6 +64,8 @@ export class FlowRecorder {
 			description: `Recorded on ${new Date().toLocaleString()}`,
 			steps,
 			variables,
+			...(data ? { data } : {}),
+			...(Object.keys(dataSources).length ? { dataSources } : {}),
 		});
 		const saveDraft = () => {
 			writeFileSync(outputPath, JSON.stringify(buildFlowDefinition(), null, 2));
@@ -129,7 +134,14 @@ export class FlowRecorder {
 								win.__cdpSyncState(stateStr as string);
 							}
 						},
-						JSON.stringify({ name: flowName, steps, variables, isPaused }),
+						JSON.stringify({
+							name: flowName,
+							steps,
+							variables,
+							isPaused,
+							data: data ?? null,
+							dataSources,
+						}),
 					);
 				} catch {}
 			};
@@ -167,6 +179,41 @@ export class FlowRecorder {
 				if ((p.name === "__cdpRecordEvent" || p.name === "__cdpRecordEvent__") && p.payload) {
 					try {
 						const event = JSON.parse(p.payload);
+						if (event.type === "attachDataSource" && event.provider === "google-sheets") {
+							const uri = googleSheetsUriFromInput(
+								String(event.input || ""),
+								typeof event.tab === "string" ? event.tab : undefined,
+								typeof event.range === "string" ? event.range : undefined,
+							);
+							const sourceName = "googleSheet";
+							data = { ...data, source: sourceName };
+							dataSources = {
+								...dataSources,
+								[sourceName]: {
+									provider: "google-sheets",
+									uri,
+									...(typeof event.account === "string" && event.account
+										? { account: event.account }
+										: {}),
+								},
+							};
+							console.log(
+								`  ${colors.cyan}▦ [DATA]${colors.reset} Attached Google Sheet ${colors.dim}${uri}${colors.reset}`,
+							);
+							void syncDraftSafely(syncStateToBrowser);
+							return;
+						}
+						if (event.type === "detachDataSource" && event.provider === "google-sheets") {
+							const sourceName = data?.source;
+							if (sourceName && dataSources[sourceName]?.provider === "google-sheets") {
+								const remaining = { ...dataSources };
+								delete remaining[sourceName];
+								dataSources = remaining;
+								data = undefined;
+							}
+							void syncDraftSafely(syncStateToBrowser);
+							return;
+						}
 						if (event.type === "goto" && containsSensitiveUrlData(String(event.url || ""))) {
 							console.log(
 								`  ${colors.dim}Skipped navigation containing sensitive session parameters.${colors.reset}`,

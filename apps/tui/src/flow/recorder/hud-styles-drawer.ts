@@ -6,11 +6,10 @@ export const HUD_STYLES_DRAWER = `
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: rgba(0, 0, 0, 0.65);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: rgba(9, 9, 11, 0.72);
     align-items: center;
     justify-content: center;
+    padding: 20px 20px 88px;
     pointer-events: auto;
     z-index: 2147483646;
   }
@@ -18,35 +17,35 @@ export const HUD_STYLES_DRAWER = `
   .drawer-card {
     background: #111113;
     border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 12px;
-    width: 760px;
-    max-width: 94vw;
-    height: 560px;
-    max-height: 88vh;
+    border-radius: 16px;
+    width: min(720px, 100%);
+    height: min(520px, 100%);
     display: flex;
     flex-direction: column;
     color: #fafafa;
     box-shadow: 0 25px 50px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
     overflow: hidden;
+    contain: layout paint;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   }
   .drawer-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 14px 18px;
+    min-height: 66px;
+    padding: 13px 18px;
     background: #141416;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   }
-  .drawer-title { font-size: 14px; font-weight: 600; color: #fafafa; display: flex; align-items: center; gap: 6px; }
-  .drawer-subtitle { font-size: 11.5px; color: #71717a; margin-top: 2px; }
+  .drawer-title { font-size: 14px; font-weight: 650; color: #fafafa; display: flex; align-items: center; gap: 7px; }
+  .drawer-subtitle { max-width: 560px; margin-top: 3px; overflow: hidden; color: #71717a; font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }
   .drawer-close-btn {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: #a1a1aa;
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -62,13 +61,17 @@ export const HUD_STYLES_DRAWER = `
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     padding: 0 16px;
     gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
   }
+  .drawer-tabs::-webkit-scrollbar { display: none; }
   .drawer-tab {
     background: transparent;
     border: none;
     border-bottom: 2px solid transparent;
     color: #71717a;
-    padding: 10px 12px;
+    min-height: 44px;
+    padding: 9px 11px;
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
@@ -79,12 +82,16 @@ export const HUD_STYLES_DRAWER = `
   }
   .drawer-tab:hover { color: #a1a1aa; }
   .drawer-tab.active { color: #fafafa; border-bottom-color: #fafafa; font-weight: 600; }
+  .drawer-tab-count { min-width: 17px; height: 17px; padding: 0 5px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: rgba(255, 255, 255, 0.08); font-size: 9.5px; color: #a1a1aa; }
+  .drawer-tab.active .drawer-tab-count { background: rgba(255, 255, 255, 0.14); color: #fafafa; }
 
   .drawer-body {
     flex: 1;
     overflow-y: auto;
-    padding: 16px 20px;
+    padding: 16px 18px 18px;
     background: #111113;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
   }
   .tab-panel { display: none; height: 100%; }
   .tab-panel.active { display: block; }
@@ -214,4 +221,18 @@ export const HUD_STYLES_DRAWER = `
     color: #fafafa;
   }
   .form-btn-sec:hover { background: rgba(255, 255, 255, 0.12); }
+  .drawer-inline-form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; margin-bottom: 12px; }
+  .drawer-inline-form .form-btn { white-space: nowrap; }
+  .drawer-panel-toolbar { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+  .insert-step-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .insert-step-card { min-width: 0; padding: 12px; display: flex; flex-direction: column; gap: 7px; background: #18181b; border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 10px; }
+  .insert-step-card:focus-within { border-color: rgba(255, 255, 255, 0.16); }
+  .insert-step-title { display: flex; align-items: center; gap: 7px; color: #e4e4e7; font-size: 12px; font-weight: 650; }
+  .insert-step-description { min-height: 24px; color: #71717a; font-size: 10.5px; line-height: 1.3; }
+  .insert-step-card .form-btn { align-self: flex-start; margin-top: auto; }
+  .form-input-action { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+  .form-target-btn { padding: 0 10px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid rgba(96, 165, 250, 0.34); border-radius: 6px; background: rgba(59, 130, 246, 0.12); color: #bfdbfe; font: inherit; font-size: 11px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+  .form-target-btn:hover { border-color: rgba(96, 165, 250, 0.55); background: rgba(59, 130, 246, 0.2); color: #ffffff; }
+  .form-target-btn:focus-visible { outline: 2px solid rgba(96, 165, 250, 0.65); outline-offset: 2px; }
+  @media (max-width: 620px) { .drawer-overlay { padding: 10px 10px 78px; } .drawer-card { height: 100%; border-radius: 12px; } .drawer-tabs { padding: 0 8px; } .drawer-tab { padding-inline: 9px; } .drawer-body { padding: 12px; } .insert-step-grid, .drawer-inline-form { grid-template-columns: 1fr; } }
 `;

@@ -65,6 +65,85 @@ export const INJECTED_MODALS_SRC = `
     } else if (e.key === "Escape") closeAssertModal();
   });
 
+  const dataOverlay = shadow.getElementById("modal-data-overlay");
+  const dataSheetInput = shadow.getElementById("input-data-sheet");
+  const dataTabInput = shadow.getElementById("input-data-tab");
+  const dataRangeInput = shadow.getElementById("input-data-range");
+  const dataAccountInput = shadow.getElementById("input-data-account");
+
+  function currentDataSource() {
+    const sourceName = flowState.data?.source;
+    return sourceName ? flowState.dataSources?.[sourceName] : undefined;
+  }
+
+  function closeDataModal() {
+    dataOverlay?.classList.remove("open");
+  }
+
+  function openDataModal() {
+    const source = currentDataSource();
+    let sheet = "", tab = "", range = "";
+    if (source?.uri) {
+      try {
+        const uri = new URL(source.uri);
+        sheet = decodeURIComponent(uri.hostname);
+        tab = decodeURIComponent(uri.pathname.replace(/^\\/+/, ""));
+        range = uri.searchParams.get("range") || "";
+      } catch { sheet = source.uri; }
+    }
+    if (dataSheetInput) dataSheetInput.value = sheet;
+    if (dataTabInput) dataTabInput.value = tab;
+    if (dataRangeInput) dataRangeInput.value = range;
+    if (dataAccountInput) dataAccountInput.value = source?.account || "";
+    const current = shadow.getElementById("modal-data-current");
+    if (current) {
+      current.hidden = !source?.uri;
+      current.innerText = source?.uri ? ("Attached: " + source.uri) : "";
+    }
+    const detach = shadow.getElementById("btn-data-detach");
+    if (detach) detach.hidden = !source;
+    dataOverlay?.classList.add("open");
+    setTimeout(() => dataSheetInput?.focus(), 50);
+  }
+
+  shadow.getElementById("btn-data")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    openDataModal();
+  });
+  shadow.getElementById("btn-data-cancel")?.addEventListener("click", closeDataModal);
+  shadow.getElementById("btn-data-attach")?.addEventListener("click", () => {
+    const input = dataSheetInput?.value?.trim();
+    if (!input) {
+      showToast("Paste a Google Sheet URL or spreadsheet ID", true);
+      dataSheetInput?.focus();
+      return;
+    }
+    emitRecordEvent({
+      type: "attachDataSource",
+      provider: "google-sheets",
+      input,
+      tab: dataTabInput?.value?.trim() || undefined,
+      range: dataRangeInput?.value?.trim() || undefined,
+      account: dataAccountInput?.value?.trim() || undefined,
+    });
+    closeDataModal();
+    showToast("Google Sheet attached");
+  });
+  shadow.getElementById("btn-data-detach")?.addEventListener("click", () => {
+    emitRecordEvent({ type: "detachDataSource", provider: "google-sheets" });
+    closeDataModal();
+    showToast("Google Sheet detached");
+  });
+  dataOverlay?.addEventListener("click", (e) => {
+    if (e.target === dataOverlay) closeDataModal();
+  });
+  for (const input of [dataSheetInput, dataTabInput, dataRangeInput, dataAccountInput]) {
+    input?.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeDataModal();
+      if (e.key === "Enter") shadow.getElementById("btn-data-attach")?.click();
+    });
+  }
+
   const btnPause = shadow.getElementById("btn-pause");
   const btnExtract = shadow.getElementById("btn-extract");
   const btnList = shadow.getElementById("btn-list");
@@ -79,7 +158,8 @@ export const INJECTED_MODALS_SRC = `
     e?.stopPropagation();
     flowState.isPaused = !flowState.isPaused;
     persistState(); updateBadge();
-    if (btnPause) btnPause.innerHTML = flowState.isPaused ? (${JSON.stringify(ICONS.play)} + " Resume") : (${JSON.stringify(ICONS.pause)} + " Pause");
+    if (btnPause) btnPause.innerHTML = flowState.isPaused ? (${JSON.stringify(ICONS.play)} + '<span class="hud-action-label">Resume</span>') : (${JSON.stringify(ICONS.pause)} + '<span class="hud-action-label">Pause</span>');
+    if (btnPause) btnPause.setAttribute("title", flowState.isPaused ? "Resume recording" : "Pause recording");
     shadow.getElementById("badge")?.classList.toggle("paused", flowState.isPaused);
     showToast(flowState.isPaused ? "Recording paused" : "Recording resumed");
     if (typeof broadcastModes === "function") broadcastModes();
@@ -87,6 +167,9 @@ export const INJECTED_MODALS_SRC = `
   };
   btnPause?.addEventListener("click", togglePause);
   shadow.getElementById("badge")?.addEventListener("click", togglePause);
+  shadow.getElementById("badge")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); togglePause(e); }
+  });
 
   btnExtract?.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -117,10 +200,13 @@ export const INJECTED_MODALS_SRC = `
 
   btnWait?.addEventListener("click", (e) => {
     e.stopPropagation(); toggleDrawer(true);
-    shadow.querySelectorAll(".drawer-tab").forEach((t) => t.classList.remove("active"));
+    shadow.querySelectorAll(".drawer-tab").forEach((t) => { t.classList.remove("active"); t.setAttribute("aria-selected", "false"); });
     shadow.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
-    shadow.querySelector('.drawer-tab[data-tab="add"]')?.classList.add("active");
+    const addTab = shadow.querySelector('.drawer-tab[data-tab="add"]');
+    addTab?.classList.add("active"); addTab?.setAttribute("aria-selected", "true");
     shadow.getElementById("panel-add")?.classList.add("active");
+    const body = shadow.querySelector(".drawer-body");
+    if (body) body.scrollTop = 0;
     shadow.getElementById("add-wait-ms")?.focus();
   });
 

@@ -1,5 +1,3 @@
-import { ICONS } from "./hud-icons.js";
-
 export const INJECTED_WEBCAM_MODAL_SRC = `
   function updateWebcamStatusUI() {
     const cam = window.__cdpVirtualWebcam;
@@ -10,7 +8,10 @@ export const INJECTED_WEBCAM_MODAL_SRC = `
     const camBtn = shadow.getElementById("btn-webcam");
     if (camBtn) {
       camBtn.classList.toggle("active-cam", isActive);
-      camBtn.innerHTML = ${JSON.stringify(ICONS.camera)} + (isActive ? " Cam (ON)" : " Cam");
+      const camLabel = shadow.getElementById("btn-webcam-label");
+      const camStatus = shadow.getElementById("btn-webcam-status");
+      if (camLabel) camLabel.innerText = isActive ? "Virtual camera on" : "Virtual camera";
+      if (camStatus) camStatus.innerText = isActive ? (cam.sourceInfo || "Feed active") : "Use a video or test feed";
     }
   }
 
