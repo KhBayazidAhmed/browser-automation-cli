@@ -36,7 +36,8 @@ describe("Text Case Sensitivity, Regex & Normalization Engine", () => {
 
 		// Reset output
 		await page.evaluate(() => {
-			document.getElementById("output")!.innerText = "none";
+			const output = document.getElementById("output");
+			if (output) output.innerText = "none";
 		});
 
 		// text/i="cancel now" -> case-insensitive strict text
@@ -45,7 +46,8 @@ describe("Text Case Sensitivity, Regex & Normalization Engine", () => {
 
 		// Reset
 		await page.evaluate(() => {
-			document.getElementById("output")!.innerText = "none";
+			const output = document.getElementById("output");
+			if (output) output.innerText = "none";
 		});
 
 		// :text-is("submit application", i)

@@ -1,13 +1,8 @@
 import type { Page } from "../page.js";
 import { INJECTED_FIND_ELEMENT_SRC } from "./injected-element-finder.js";
-import {
-	type AssertOptions,
-	type SelectorOptions,
-	serializeMatchOptions,
-	type TextMatchOptions,
-} from "./types.js";
+import { type AssertOptions, type SelectorOptions, serializeMatchOptions } from "./types.js";
 
-async function getContextId(
+export async function getContextId(
 	page: Page,
 	selector?: string,
 	options?: SelectorOptions,
@@ -16,10 +11,12 @@ async function getContextId(
 	if (explicitCtx !== undefined) return explicitCtx;
 	if (options?.frame) {
 		const f = await page.frameManager.resolveFrame(options.frame);
-		return f.contextId;
+		return f.ensureContextId();
 	}
 	const targetFrame = await page.frameManager.findFrameWithElement(selector, options);
-	return targetFrame?.contextId ?? page.frameManager.mainFrame().contextId;
+	return targetFrame
+		? targetFrame.ensureContextId()
+		: page.frameManager.mainFrame().ensureContextId();
 }
 
 export async function getElementText(
@@ -44,36 +41,6 @@ export async function getElementText(
 	);
 }
 
-export async function getMultipleElementTexts(
-	page: Page,
-	selector: string,
-	options: TextMatchOptions = {},
-	contextId?: number,
-): Promise<string[]> {
-	await page.init();
-	const ctxId = await getContextId(page, selector, options, contextId);
-	const matchOpts = serializeMatchOptions(options);
-
-	return page.evaluateInContext(
-		ctxId,
-		(sel: string, _opts: unknown) => {
-			const elements = Array.from(document.querySelectorAll(sel));
-			return elements
-				.filter((el) => !el.closest || !el.closest("#__cdp_recorder_hud__"))
-				.map((el) => {
-					const elVal = el as { value?: unknown };
-					if ("value" in el && typeof elVal.value === "string") {
-						return elVal.value.trim();
-					}
-					const h = el as HTMLElement;
-					return h.innerText ? h.innerText.trim() : h.textContent ? h.textContent.trim() : "";
-				});
-		},
-		selector,
-		matchOpts,
-	);
-}
-
 export async function getElementAttribute(
 	page: Page,
 	selector: string | undefined,
@@ -88,9 +55,12 @@ export async function getElementAttribute(
 	return page.evaluateInContext(
 		ctxId,
 		`${INJECTED_FIND_ELEMENT_SRC}
-		const el = __cdpFindElement(arguments[0], arguments[2]);
-		if (!el) return null;
-		return el.getAttribute(arguments[1]);`,
+			const el = __cdpFindElement(arguments[0], arguments[2]);
+			if (!el) return null;
+			if (["value", "checked", "selected", "disabled"].includes(arguments[1]) && arguments[1] in el) {
+				return String(el[arguments[1]]);
+			}
+			return el.getAttribute(arguments[1]);`,
 		selector,
 		attribute,
 		matchOpts,
@@ -105,7 +75,7 @@ export async function assertElementText(
 ): Promise<string> {
 	await page.init();
 	const ctxId = await getContextId(page, selector, options, contextId);
-	const timeout = options.timeout || 10000;
+	const timeout = options.timeout ?? 10000;
 	const startTime = Date.now();
 
 	const hasExpected = Boolean(
@@ -123,13 +93,13 @@ export async function assertElementText(
 	}
 
 	const expectedVal =
-		options.equals ||
-		options.contains ||
-		options.startsWith ||
-		options.endsWith ||
-		(options.matches instanceof RegExp ? options.matches.source : options.matches) ||
-		(typeof options.strictText === "string" ? options.strictText : undefined) ||
-		options.text ||
+		options.equals ??
+		options.contains ??
+		options.startsWith ??
+		options.endsWith ??
+		(options.matches instanceof RegExp ? options.matches.source : options.matches) ??
+		(typeof options.strictText === "string" ? options.strictText : undefined) ??
+		options.text ??
 		"";
 
 	while (Date.now() - startTime < timeout) {
@@ -158,26 +128,28 @@ export async function assertElementText(
 			const actCased = arguments[1].ignoreCase ? actNorm.toLowerCase() : actNorm;
 
 			let passed = false;
-			if (arguments[1].matches) {
-				const r = new RegExp(arguments[1].matches, arguments[1].ignoreCase ? "i" : "");
-				passed = r.test(actual);
-			} else if (arguments[1].startsWith) {
+				if (arguments[1].matches !== undefined) {
+					let flags = arguments[1].matchesFlags || "";
+					if (arguments[1].ignoreCase && !flags.includes("i")) flags += "i";
+					const r = new RegExp(arguments[1].matches, flags);
+					passed = r.test(actual);
+				} else if (arguments[1].startsWith !== undefined) {
 				const exp = arguments[1].ignoreCase ? normalize(arguments[1].startsWith).toLowerCase() : normalize(arguments[1].startsWith);
 				passed = actCased.startsWith(exp);
-			} else if (arguments[1].endsWith) {
+				} else if (arguments[1].endsWith !== undefined) {
 				const exp = arguments[1].ignoreCase ? normalize(arguments[1].endsWith).toLowerCase() : normalize(arguments[1].endsWith);
 				passed = actCased.endsWith(exp);
-			} else if (arguments[1].contains) {
+				} else if (arguments[1].contains !== undefined) {
 				const exp = arguments[1].ignoreCase ? normalize(arguments[1].contains).toLowerCase() : normalize(arguments[1].contains);
 				passed = actCased.includes(exp);
-			} else if (arguments[1].equals) {
+				} else if (arguments[1].equals !== undefined) {
 				const exp = arguments[1].ignoreCase ? normalize(arguments[1].equals).toLowerCase() : normalize(arguments[1].equals);
 				passed = actCased === exp;
 			} else if (arguments[1].strictText !== undefined && arguments[1].strictText !== false) {
 				const expRaw = typeof arguments[1].strictText === "string" ? arguments[1].strictText : arguments[1].text;
 				const exp = arguments[1].ignoreCase ? normalize(expRaw).toLowerCase() : normalize(expRaw);
 				passed = actCased === exp;
-			} else if (arguments[1].text) {
+				} else if (arguments[1].text !== undefined) {
 				const exp = arguments[1].ignoreCase ? normalize(arguments[1].text).toLowerCase() : normalize(arguments[1].text);
 				passed = actCased.includes(exp);
 			}

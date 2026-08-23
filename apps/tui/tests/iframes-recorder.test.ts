@@ -7,7 +7,6 @@ import { setupTestContext, type TestContext, teardownTestContext } from "./fixtu
 describe("Flow Recorder - Multi-Iframe Recording & Flow Tagging Suite", () => {
 	let ctx: TestContext;
 	const recordedSteps: FlowStep[] = [];
-	let isPaused = false;
 
 	beforeAll(async () => {
 		ctx = await setupTestContext();
@@ -28,9 +27,7 @@ describe("Flow Recorder - Multi-Iframe Recording & Flow Tagging Suite", () => {
 				try {
 					const event = JSON.parse(p.payload);
 					const frame = event.frame || undefined;
-					if (event.type === "pause") isPaused = true;
-					else if (event.type === "resume") isPaused = false;
-					else if (event.type === "click") {
+					if (event.type === "click") {
 						recordedSteps.push({
 							name: event.text ? `Click "${event.text}"` : `Click ${event.selector}`,
 							action: "click",

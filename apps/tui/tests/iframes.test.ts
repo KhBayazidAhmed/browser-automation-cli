@@ -28,7 +28,7 @@ describe("Unified CDP Frame Engine & Iframe Automation", () => {
 		const childFrames = mainFrame.childFrames();
 		expect(childFrames.length).toBeGreaterThanOrEqual(2);
 
-		const loginFrame = (await ctx.page.waitForFrame("loginFrame"))!;
+		const loginFrame = await ctx.page.waitForFrame("loginFrame");
 		expect(loginFrame.parentFrame()?.id).toBe(mainFrame.id);
 	});
 

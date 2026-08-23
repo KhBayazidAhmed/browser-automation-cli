@@ -2,6 +2,19 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { INJECTED_ADVANCED_RECORDER_SCRIPT } from "../src/flow/recorder.js";
 import { setupTestContext, type TestContext, teardownTestContext } from "./fixtures/browser.js";
 
+interface WebcamState {
+	sourceType: string;
+	sourceInfo?: string;
+	hasStream: boolean;
+}
+
+interface WebcamModalState extends WebcamState {
+	wasOpen: boolean;
+	isClosed: boolean;
+	btnText: string;
+	previewText: string;
+}
+
 describe("Virtual Webcam & MediaStream Injection Suite", () => {
 	let ctx: TestContext;
 
@@ -26,20 +39,27 @@ describe("Virtual Webcam & MediaStream Injection Suite", () => {
 	}, 15000);
 
 	test("1. provides CDP Virtual Webcam device in enumerateDevices", async () => {
-		const devices = await ctx.page.evaluate(`
+		const devices = await ctx.page.evaluate<
+			Array<{ kind: string; label: string; deviceId: string }>
+		>(`
 			navigator.mediaDevices.enumerateDevices().then(devs => 
 				devs.map(d => ({ kind: d.kind, label: d.label, deviceId: d.deviceId }))
 			)
 		`);
 
 		expect(Array.isArray(devices)).toBe(true);
-		const virtualCam = (devices as any[]).find((d) => d.label.includes("CDP Virtual Webcam"));
+		const virtualCam = devices.find((device) => device.label.includes("CDP Virtual Webcam"));
 		expect(virtualCam).toBeDefined();
 		expect(virtualCam?.kind).toBe("videoinput");
 	});
 
 	test("2. intercepts getUserMedia and returns active virtual video track", async () => {
-		const trackInfo = await ctx.page.evaluate(`
+		const trackInfo = await ctx.page.evaluate<{
+			trackCount: number;
+			enabled: boolean;
+			readyState: string;
+			label: string;
+		}>(`
 			navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
 				const tracks = stream.getVideoTracks();
 				return {
@@ -51,14 +71,14 @@ describe("Virtual Webcam & MediaStream Injection Suite", () => {
 			})
 		`);
 
-		expect((trackInfo as any).trackCount).toBe(1);
-		expect((trackInfo as any).enabled).toBe(true);
-		expect((trackInfo as any).readyState).toBe("live");
-		expect((trackInfo as any).label).toContain("CDP Virtual Webcam");
+		expect(trackInfo.trackCount).toBe(1);
+		expect(trackInfo.enabled).toBe(true);
+		expect(trackInfo.readyState).toBe("live");
+		expect(trackInfo.label).toContain("CDP Virtual Webcam");
 	});
 
 	test("3. switches virtual webcam feed to synthetic test pattern", async () => {
-		const switched = await ctx.page.evaluate(`
+		const switched = await ctx.page.evaluate<WebcamState>(`
 			(() => {
 				if (!window.__cdpVirtualWebcam) return false;
 				window.__cdpVirtualWebcam.useTestPattern();
@@ -69,12 +89,12 @@ describe("Virtual Webcam & MediaStream Injection Suite", () => {
 			})()
 		`);
 
-		expect((switched as any).sourceType).toBe("pattern");
-		expect((switched as any).hasStream).toBe(true);
+		expect(switched.sourceType).toBe("pattern");
+		expect(switched.hasStream).toBe(true);
 	});
 
 	test("4. switches virtual webcam feed to solid color feed", async () => {
-		const switched = await ctx.page.evaluate(`
+		const switched = await ctx.page.evaluate<WebcamState>(`
 			(() => {
 				if (!window.__cdpVirtualWebcam) return false;
 				window.__cdpVirtualWebcam.useColorFeed("#3b82f6");
@@ -86,13 +106,13 @@ describe("Virtual Webcam & MediaStream Injection Suite", () => {
 			})()
 		`);
 
-		expect((switched as any).sourceType).toBe("solid");
-		expect((switched as any).sourceInfo).toContain("#3b82f6");
-		expect((switched as any).hasStream).toBe(true);
+		expect(switched.sourceType).toBe("solid");
+		expect(switched.sourceInfo).toContain("#3b82f6");
+		expect(switched.hasStream).toBe(true);
 	});
 
 	test("5. sets virtual webcam source to video URL", async () => {
-		const result = await ctx.page.evaluate(`
+		const result = await ctx.page.evaluate<WebcamState>(`
 			(async () => {
 				if (!window.__cdpVirtualWebcam) return null;
 				await window.__cdpVirtualWebcam.setVideoUrl("https://example.com/demo.mp4");
@@ -104,13 +124,13 @@ describe("Virtual Webcam & MediaStream Injection Suite", () => {
 			})()
 		`);
 
-		expect((result as any).sourceType).toBe("url");
-		expect((result as any).sourceInfo).toContain("URL:");
-		expect((result as any).hasStream).toBe(true);
+		expect(result.sourceType).toBe("url");
+		expect(result.sourceInfo).toContain("URL:");
+		expect(result.hasStream).toBe(true);
 	});
 
 	test("6. sets virtual webcam source to local video file", async () => {
-		const result = await ctx.page.evaluate(`
+		const result = await ctx.page.evaluate<WebcamState>(`
 			(async () => {
 				if (!window.__cdpVirtualWebcam) return null;
 				const dummyBlob = new Blob(["video-sample"], { type: "video/mp4" });
@@ -124,13 +144,13 @@ describe("Virtual Webcam & MediaStream Injection Suite", () => {
 			})()
 		`);
 
-		expect((result as any).sourceType).toBe("file");
-		expect((result as any).sourceInfo).toContain("custom-recording.mp4");
-		expect((result as any).hasStream).toBe(true);
+		expect(result.sourceType).toBe("file");
+		expect(result.sourceInfo).toContain("custom-recording.mp4");
+		expect(result.hasStream).toBe(true);
 	});
 
 	test("7. opens virtual webcam modal and applies video URL via HUD", async () => {
-		const modalCheck = await ctx.page.evaluate(`
+		const modalCheck = await ctx.page.evaluate<WebcamModalState>(`
 			(async () => {
 				const hud = document.getElementById("__cdp_recorder_hud__");
 				const shadow = hud.shadowRoot;
@@ -159,15 +179,19 @@ describe("Virtual Webcam & MediaStream Injection Suite", () => {
 			})()
 		`);
 
-		expect((modalCheck as any).wasOpen).toBe(true);
-		expect((modalCheck as any).isClosed).toBe(true);
-		expect((modalCheck as any).sourceType).toBe("url");
-		expect((modalCheck as any).btnText).toContain("Cam (ON)");
-		expect((modalCheck as any).previewText).toContain("URL:");
+		expect(modalCheck.wasOpen).toBe(true);
+		expect(modalCheck.isClosed).toBe(true);
+		expect(modalCheck.sourceType).toBe("url");
+		expect(modalCheck.btnText).toContain("Cam (ON)");
+		expect(modalCheck.previewText).toContain("URL:");
 	});
 
 	test("8. clears/disables virtual webcam feed and resets status", async () => {
-		const resetCheck = await ctx.page.evaluate(`
+		const resetCheck = await ctx.page.evaluate<{
+			isBtnActive: boolean;
+			btnText: string;
+			sourceType: string;
+		}>(`
 			(() => {
 				const hud = document.getElementById("__cdp_recorder_hud__");
 				const shadow = hud.shadowRoot;
@@ -184,8 +208,8 @@ describe("Virtual Webcam & MediaStream Injection Suite", () => {
 			})()
 		`);
 
-		expect((resetCheck as any).isBtnActive).toBe(false);
-		expect((resetCheck as any).btnText).toContain("Cam");
-		expect((resetCheck as any).sourceType).toBe("none");
+		expect(resetCheck.isBtnActive).toBe(false);
+		expect(resetCheck.btnText).toContain("Cam");
+		expect(resetCheck.sourceType).toBe("none");
 	});
 });

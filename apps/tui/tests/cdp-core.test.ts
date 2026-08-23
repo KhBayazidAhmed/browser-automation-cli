@@ -53,4 +53,23 @@ describe("CDP Core Connection, Page & Interactions Suite", () => {
 		expect(metrics).toHaveProperty("Nodes");
 		expect(metrics.Nodes).toBeGreaterThan(0);
 	});
+
+	test("6. dispatches exactly one activation for page.click", async () => {
+		await page.goto(ctx.server.url("/click-count"));
+		await page.click("#count-button");
+		expect(await page.evaluate<number>("window.clickCount")).toBe(1);
+	});
+
+	test("7. blocks network requests by CDP resource type", async () => {
+		await page.blockResources(["image", "stylesheet", "script"]);
+		await page.goto(ctx.server.url("/resource-blocking"));
+		expect(ctx.server.requestCount("/asset.png")).toBe(0);
+		expect(ctx.server.requestCount("/asset.css")).toBe(0);
+		expect(ctx.server.requestCount("/asset.js")).toBe(0);
+	});
+
+	test("8. waits for the current navigation loader to become network-idle", async () => {
+		await page.goto(ctx.server.url("/"), { waitUntil: "networkidle", timeout: 3000 });
+		expect(await page.title()).toBe("CDP Test Server");
+	});
 });

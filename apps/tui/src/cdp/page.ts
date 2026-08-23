@@ -1,14 +1,9 @@
 import type { CDPClient } from "./client.js";
 import type { Frame } from "./frame.js";
-import { buildEvaluateExpression } from "./page/evaluate-helper.js";
+import { buildEvaluateExpression, type EvaluateFunction } from "./page/evaluate-helper.js";
 import { type FrameIdentifier, FrameManager } from "./page/frame-manager.js";
 import { INJECTED_FIND_ELEMENT_SRC } from "./page/injected-element-finder.js";
-import {
-	assertElementText,
-	getElementAttribute,
-	getElementText,
-	getMultipleElementTexts,
-} from "./page/page-extractors.js";
+import { assertElementText, getElementAttribute, getElementText } from "./page/page-extractors.js";
 import { clearElement, clickElement, typeIntoElement } from "./page/page-interactions.js";
 import {
 	blockPageResources,
@@ -16,6 +11,10 @@ import {
 	generatePdf,
 	getPerformanceMetrics,
 } from "./page/page-media.js";
+import {
+	getMultipleElementAttributes,
+	getMultipleElementTexts,
+} from "./page/page-multiple-extractors.js";
 import { navigatePage } from "./page/page-navigation.js";
 import {
 	type AssertOptions,
@@ -50,7 +49,6 @@ export class Page {
 	) {
 		this.frameManager = new FrameManager(this);
 	}
-
 	async init(): Promise<void> {
 		if (this.initialized) return;
 		await Promise.all([
@@ -62,7 +60,6 @@ export class Page {
 		await this.frameManager.init();
 		this.initialized = true;
 	}
-
 	mainFrame(): Frame {
 		return this.frameManager.mainFrame();
 	}
@@ -75,34 +72,28 @@ export class Page {
 	async waitForFrame(filter: FrameIdentifier, timeout = 10000): Promise<Frame> {
 		return this.frameManager.waitForFrame(filter, timeout);
 	}
-
 	async goto(url: string, options: GotoOptions = {}): Promise<void> {
 		return navigatePage(this, url, options);
 	}
-
 	async title(): Promise<string> {
 		await this.init();
 		return (await this.evaluate<string>(() => document.title)) || "";
 	}
-
 	async url(): Promise<string> {
 		await this.init();
 		return (await this.evaluate<string>(() => window.location.href)) || "";
 	}
-
 	async content(): Promise<string> {
 		await this.init();
 		return (await this.evaluate<string>(() => document.documentElement.outerHTML)) || "";
 	}
-
 	async setContent(html: string): Promise<void> {
 		await this.init();
 		await this.goto(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
 	}
-
 	async evaluateInContext<T = unknown>(
 		contextId: number | undefined,
-		expressionOrFn: string | ((...args: any[]) => any),
+		expressionOrFn: string | EvaluateFunction,
 		...args: unknown[]
 	): Promise<T> {
 		await this.init();
@@ -124,21 +115,19 @@ export class Page {
 		}
 		return response.result?.value as T;
 	}
-
 	async evaluate<T = unknown>(
-		expressionOrFn: string | ((...args: any[]) => any),
+		expressionOrFn: string | EvaluateFunction,
 		...args: unknown[]
 	): Promise<T> {
 		return this.evaluateInContext<T>(undefined, expressionOrFn, ...args);
 	}
-
 	async waitForSelectorInContext(
 		contextId: number | undefined,
 		selector?: string,
 		options: SelectorOptions = {},
 	): Promise<boolean> {
 		await this.init();
-		const timeout = options.timeout || 10000;
+		const timeout = options.timeout ?? 10000;
 		const startTime = Date.now();
 		const matchOpts = serializeMatchOptions(options);
 
@@ -156,7 +145,6 @@ export class Page {
 			`Timeout waiting for element${selector ? ` "${selector}"` : ""}${options.text ? ` (text: "${options.text}")` : ""} (${timeout}ms)`,
 		);
 	}
-
 	async waitForSelector(selector?: string, options: SelectorOptions = {}): Promise<boolean> {
 		await this.init();
 		if (options.frame) {
@@ -164,7 +152,7 @@ export class Page {
 			const ctx = await f.ensureContextId();
 			return this.waitForSelectorInContext(ctx, selector, options);
 		}
-		const timeout = options.timeout || 10000;
+		const timeout = options.timeout ?? 10000;
 		const startTime = Date.now();
 		while (Date.now() - startTime < timeout) {
 			const targetFrame = await this.frameManager.findFrameWithElement(selector, options);
@@ -175,7 +163,6 @@ export class Page {
 			`Timeout waiting for element${selector ? ` "${selector}"` : ""}${options.text ? ` (text: "${options.text}")` : ""} (${timeout}ms)`,
 		);
 	}
-
 	async waitForText(text: string, options: SelectorOptions = {}): Promise<boolean> {
 		return this.waitForSelector(options.selector, {
 			...options,
@@ -187,7 +174,6 @@ export class Page {
 	async click(selector?: string, options: SelectorOptions = {}): Promise<void> {
 		return clickElement(this, selector, options);
 	}
-
 	async clickByText(text: string, options: SelectorOptions = {}): Promise<void> {
 		return this.click(options.selector, {
 			...options,
@@ -195,7 +181,6 @@ export class Page {
 			strictText: options.strictText ?? true,
 		});
 	}
-
 	async type(selector?: string, text = "", options: TypeOptions = {}): Promise<void> {
 		return typeIntoElement(this, selector, text, options);
 	}
@@ -210,6 +195,14 @@ export class Page {
 
 	async getMultipleText(selector: string, options: TextMatchOptions = {}): Promise<string[]> {
 		return getMultipleElementTexts(this, selector, options);
+	}
+
+	async getMultipleAttribute(
+		selector: string,
+		attribute: string,
+		options: TextMatchOptions = {},
+	): Promise<string[]> {
+		return getMultipleElementAttributes(this, selector, attribute, options);
 	}
 
 	async getAttribute(
@@ -244,6 +237,8 @@ export class Page {
 		try {
 			await this.client.send("Target.closeTarget", { targetId: this.targetId });
 		} catch {
+			// Target may already be gone; closing the socket is still required.
+		} finally {
 			this.client.close();
 		}
 	}

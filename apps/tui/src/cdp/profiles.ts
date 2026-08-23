@@ -1,5 +1,5 @@
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
 export interface BrowserProfile {
@@ -15,6 +15,11 @@ export interface BrowserProfile {
 interface BrowserPathConfig {
 	name: string;
 	relPath: string;
+}
+
+interface ChromeProfileInfo {
+	name?: string;
+	user_name?: string;
 }
 
 const BROWSER_ROOTS: Record<string, BrowserPathConfig[]> = {
@@ -71,7 +76,9 @@ export function detectBrowserProfiles(customUserDataDir?: string): BrowserProfil
 				const localState = JSON.parse(readFileSync(localStatePath, "utf-8"));
 				const infoCache = localState?.profile?.info_cache || {};
 
-				for (const [folderName, info] of Object.entries<any>(infoCache)) {
+				for (const [folderName, info] of Object.entries(
+					infoCache as Record<string, ChromeProfileInfo>,
+				)) {
 					foundProfileDirs.add(folderName);
 					const profileName = info.name || folderName;
 					const userName = info.user_name || undefined;
@@ -129,7 +136,7 @@ export function cloneProfileForAutomation(
 	profile: BrowserProfile,
 	targetBaseDir?: string,
 ): { userDataDir: string; profileDirectory: string } {
-	const baseDir = targetBaseDir || join(homedir(), ".browser-automation", "profiles", profile.id);
+	const baseDir = targetBaseDir || mkdtempSync(join(tmpdir(), `cdp-cloned-profile-${profile.id}-`));
 
 	if (!existsSync(baseDir)) {
 		mkdirSync(baseDir, { recursive: true });

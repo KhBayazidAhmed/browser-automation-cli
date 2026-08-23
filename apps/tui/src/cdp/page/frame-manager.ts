@@ -10,23 +10,30 @@ export interface FrameFilterOptions {
 }
 
 export type FrameIdentifier = string | FrameFilterOptions;
+interface FrameTreeNode {
+	frame: { id: string; parentId?: string; url?: string; name?: string };
+	childFrames?: FrameTreeNode[];
+}
 
 export class FrameManager {
 	private _frames = new Map<string, Frame>();
 	private _mainFrameId: string | null = null;
 	public readonly _frameIdToContext = new Map<string, number>();
-
 	constructor(private readonly page: Page) {
 		this.setupEventListeners();
 	}
-
+	contextIdForFrame(frameId: string): number | undefined {
+		return this._frameIdToContext.get(frameId);
+	}
+	setContextIdForFrame(frameId: string, contextId: number): void {
+		this._frameIdToContext.set(frameId, contextId);
+	}
 	async init(): Promise<void> {
 		try {
 			const { frameTree } = await this.page.client.send("Page.getFrameTree");
 			if (frameTree) this.processFrameTree(frameTree);
 		} catch {}
 	}
-
 	private setupEventListeners(): void {
 		this.page.client.on("Page.frameAttached", (p: { frameId: string; parentFrameId?: string }) => {
 			if (!p?.frameId) return;
@@ -116,14 +123,7 @@ export class FrameManager {
 			for (const frame of this._frames.values()) frame.contextId = undefined;
 		});
 	}
-
-	private processFrameTree(
-		node: {
-			frame: { id: string; parentId?: string; url?: string; name?: string };
-			childFrames?: any[];
-		},
-		parentId?: string,
-	): void {
+	private processFrameTree(node: FrameTreeNode, parentId?: string): void {
 		const f = node.frame;
 		if (!f) return;
 		const actualParentId = f.parentId || parentId;
@@ -142,10 +142,11 @@ export class FrameManager {
 			for (const child of node.childFrames) this.processFrameTree(child, f.id);
 		}
 	}
-
 	mainFrame(): Frame {
-		if (this._mainFrameId && this._frames.has(this._mainFrameId))
-			return this._frames.get(this._mainFrameId)!;
+		if (this._mainFrameId) {
+			const main = this._frames.get(this._mainFrameId);
+			if (main) return main;
+		}
 		for (const frame of this._frames.values()) {
 			if (frame.isMainFrame()) return frame;
 		}
@@ -153,11 +154,9 @@ export class FrameManager {
 		this._frames.set("main", fallback);
 		return fallback;
 	}
-
 	frames(): Frame[] {
 		return Array.from(this._frames.values());
 	}
-
 	getFrame(filter: FrameIdentifier): Frame | undefined {
 		if (typeof filter === "string") {
 			const str = filter.trim();
@@ -181,7 +180,6 @@ export class FrameManager {
 			return true;
 		});
 	}
-
 	async resolveFrame(identifier?: FrameIdentifier, timeout = 5000): Promise<Frame> {
 		if (!identifier) return this.mainFrame();
 		const start = Date.now();

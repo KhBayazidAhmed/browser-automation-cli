@@ -39,12 +39,15 @@ export async function clickElement(
 	}>(
 		ctxId,
 		`${INJECTED_FIND_ELEMENT_SRC}
-		const el = __cdpFindElement(arguments[0], arguments[1]);
-		if (el) {
-			try { el.scrollIntoView({ block: "center", inline: "center" }); } catch {}
-			const rect = el.getBoundingClientRect();
-			const cx = rect.left + rect.width / 2;
-			const cy = rect.top + rect.height / 2;
+			const el = __cdpFindElement(arguments[0], arguments[1]);
+			if (el) {
+				const interactive = (el.closest && el.closest("button, a, [role='button'], input[type='submit'], input[type='button'], [tabindex], lux-button, mam-button, nav-item, select, label")) || el;
+				const shadowTarget = el.shadowRoot ? el.shadowRoot.querySelector("button, a, [role='button'], input") : null;
+				const target = shadowTarget || interactive;
+				try { target.scrollIntoView({ block: "center", inline: "center" }); } catch {}
+				const rect = target.getBoundingClientRect();
+				const cx = rect.left + rect.width / 2;
+				const cy = rect.top + rect.height / 2;
 			let ax = cx, ay = cy, curWin = window, hasParentOffset = false;
 			while (curWin !== curWin.top) {
 				try {
@@ -56,31 +59,7 @@ export async function clickElement(
 					curWin = curWin.parent;
 				} catch (_) { break; }
 			}
-
-			const baseEvt = { bubbles: true, cancelable: true, composed: true, view: window, clientX: cx, clientY: cy, screenX: cx, screenY: cy, detail: 1 };
-			const downEvt = { ...baseEvt, button: 0, buttons: 1 };
-			const upEvt = { ...baseEvt, button: 0, buttons: 0 };
-
-			const interactive = (el.closest && el.closest("button, a, [role='button'], input[type='submit'], input[type='button'], [tabindex], lux-button, mam-button, nav-item, select, label")) || el;
-			const shadowBtn = el.shadowRoot ? el.shadowRoot.querySelector("button, a, [role='button'], input") : null;
-			const targets = [el];
-			if (interactive && interactive !== el) targets.push(interactive);
-			if (shadowBtn && !targets.includes(shadowBtn)) targets.push(shadowBtn);
-
-			for (const t of targets) {
-				try { if (typeof t.focus === "function") t.focus(); } catch {}
-				try { t.dispatchEvent(new PointerEvent("pointerover", upEvt)); } catch {}
-				try { t.dispatchEvent(new MouseEvent("mouseover", upEvt)); } catch {}
-				try { t.dispatchEvent(new PointerEvent("pointerenter", upEvt)); } catch {}
-				try { t.dispatchEvent(new MouseEvent("mouseenter", upEvt)); } catch {}
-				try { t.dispatchEvent(new PointerEvent("pointerdown", downEvt)); } catch {}
-				try { t.dispatchEvent(new MouseEvent("mousedown", downEvt)); } catch {}
-				try { t.dispatchEvent(new PointerEvent("pointerup", upEvt)); } catch {}
-				try { t.dispatchEvent(new MouseEvent("mouseup", upEvt)); } catch {}
-				try { t.dispatchEvent(new MouseEvent("click", upEvt)); } catch {}
-				try { if (typeof t.click === "function") t.click(); } catch {}
-			}
-			return { success: true, x: Math.round(ax), y: Math.round(ay), hasParentOffset };
+				return { success: true, x: Math.round(ax), y: Math.round(ay), hasParentOffset };
 		}
 		return { success: false };`,
 		selector,
@@ -93,6 +72,7 @@ export async function clickElement(
 		);
 	}
 
+	let hardwareClicked = false;
 	if (
 		clickResult.x !== undefined &&
 		clickResult.y !== undefined &&
@@ -143,7 +123,26 @@ export async function clickElement(
 				button: "left",
 				clickCount: 1,
 			});
+			hardwareClicked = true;
 		} catch {}
+	}
+
+	if (!hardwareClicked) {
+		const fallbackClicked = await page.evaluateInContext<boolean>(
+			ctxId,
+			`${INJECTED_FIND_ELEMENT_SRC}
+			const el = __cdpFindElement(arguments[0], arguments[1]);
+			if (!el) return false;
+			const interactive = (el.closest && el.closest("button, a, [role='button'], input[type='submit'], input[type='button'], [tabindex], select, label")) || el;
+			const target = (el.shadowRoot && el.shadowRoot.querySelector("button, a, [role='button'], input")) || interactive;
+			if (typeof target.click !== "function") return false;
+			target.click();
+			return true;`,
+			selector,
+			matchOpts,
+		);
+		if (!fallbackClicked)
+			throw new Error("CDP hardware click failed and no DOM fallback was available");
 	}
 }
 
@@ -165,21 +164,25 @@ export async function typeIntoElement(
 	const success = await page.evaluateInContext<boolean>(
 		ctxId,
 		`${INJECTED_FIND_ELEMENT_SRC}
-		const el = __cdpFindElement(arguments[0], arguments[3]);
-		if (el) {
-			try { el.scrollIntoView({ block: "center", inline: "center" }); } catch {}
-			try { el.focus(); } catch {}
-			if (arguments[2] && "value" in el) {
-				el.value = "";
+			const el = __cdpFindElement(arguments[0], arguments[3]);
+			if (el) {
+				try { el.scrollIntoView({ block: "center", inline: "center" }); } catch {}
+				try { el.focus(); } catch {}
+				if ("value" in el) {
+					const nextValue = arguments[2] ? arguments[1] : (el.value || "") + arguments[1];
+					const prototype = el instanceof HTMLTextAreaElement
+						? HTMLTextAreaElement.prototype
+						: el instanceof HTMLSelectElement
+							? HTMLSelectElement.prototype
+							: HTMLInputElement.prototype;
+					const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
+					if (setter) setter.call(el, nextValue);
+					else el.value = nextValue;
+				} else {
+					el.innerText = arguments[1];
+				}
+				try { el.dispatchEvent(new InputEvent("beforeinput", { bubbles: true, composed: true, inputType: "insertText", data: arguments[1] })); } catch {}
 				el.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
-				el.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
-			}
-			if ("value" in el) {
-				el.value = arguments[2] ? arguments[1] : (el.value || "") + arguments[1];
-			} else {
-				el.innerText = arguments[1];
-			}
-			el.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
 			el.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
 			return true;
 		}
@@ -212,10 +215,17 @@ export async function clearElement(
 		ctxId,
 		`${INJECTED_FIND_ELEMENT_SRC}
 		const el = __cdpFindElement(arguments[0], arguments[1]);
-		if (el) {
-			try { el.focus(); } catch {}
-			if ("value" in el) {
-				el.value = "";
+			if (el) {
+				try { el.focus(); } catch {}
+				if ("value" in el) {
+					const prototype = el instanceof HTMLTextAreaElement
+						? HTMLTextAreaElement.prototype
+						: el instanceof HTMLSelectElement
+							? HTMLSelectElement.prototype
+							: HTMLInputElement.prototype;
+					const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
+					if (setter) setter.call(el, "");
+					else el.value = "";
 				el.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
 				el.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
 			} else {

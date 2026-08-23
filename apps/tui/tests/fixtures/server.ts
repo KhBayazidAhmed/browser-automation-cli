@@ -3,6 +3,7 @@ import type { Server } from "bun";
 export interface TestServer {
 	server: Server<undefined>;
 	url: (path?: string) => string;
+	requestCount: (path: string) => number;
 	close: () => void;
 }
 
@@ -27,18 +28,37 @@ const PAGES: Record<string, string> = {
 	"/iframes-dynamic": `<!DOCTYPE html><html><head><title>Dynamic Frames</title></head><body><h1 id="dyn-heading">Dynamic Frames Hub</h1><button id="btn-add-iframe" onclick="const f = document.createElement('iframe'); f.id='dyn-frame'; f.name='dynFrame'; f.src='/iframe-login'; document.body.appendChild(f);">Add Frame</button><button id="btn-remove-iframe" onclick="document.getElementById('dyn-frame')?.remove();">Remove Frame</button></body></html>`,
 	"/iframe-list": `<!DOCTYPE html><html><head><title>Iframe List</title></head><body><ul class="frame-list"><li class="f-item" data-code="C-101">Item Alpha</li><li class="f-item" data-code="C-102">Item Beta</li><li class="f-item" data-code="C-103">Item Gamma</li></ul></body></html>`,
 	"/iframes-list-host": `<!DOCTYPE html><html><head><title>List Host</title></head><body><h1>Host Page</h1><iframe id="frame-list-host" name="listFrame" src="/iframe-list"></iframe></body></html>`,
+	"/click-count": `<!DOCTYPE html><html><body><button id="count-button" onclick="window.clickCount=(window.clickCount||0)+1">Count Once</button></body></html>`,
+	"/resource-blocking": `<!DOCTYPE html><html><head><link rel="stylesheet" href="/asset.css"></head><body><img src="/asset.png"><script src="/asset.js"></script></body></html>`,
 };
 
 export function startTestServer(): TestServer {
+	const requestCounts = new Map<string, number>();
 	const server = Bun.serve({
 		port: 0,
 		hostname: "127.0.0.1",
 		fetch(req) {
 			const url = new URL(req.url);
+			requestCounts.set(url.pathname, (requestCounts.get(url.pathname) || 0) + 1);
 			const html = PAGES[url.pathname];
 			if (html) {
 				return new Response(html, {
 					headers: { "Content-Type": "text/html; charset=utf-8" },
+				});
+			}
+			if (url.pathname === "/asset.css") {
+				return new Response("body { color: rgb(1, 2, 3); }", {
+					headers: { "Content-Type": "text/css" },
+				});
+			}
+			if (url.pathname === "/asset.js") {
+				return new Response("window.assetScriptLoaded = true", {
+					headers: { "Content-Type": "application/javascript" },
+				});
+			}
+			if (url.pathname === "/asset.png") {
+				return new Response(new Uint8Array([137, 80, 78, 71]), {
+					headers: { "Content-Type": "image/png" },
 				});
 			}
 			return new Response("Not Found", { status: 404 });
@@ -48,6 +68,7 @@ export function startTestServer(): TestServer {
 	return {
 		server,
 		url: (path = "/") => `http://127.0.0.1:${server.port}${path}`,
+		requestCount: (path) => requestCounts.get(path) || 0,
 		close: () => server.stop(true),
 	};
 }

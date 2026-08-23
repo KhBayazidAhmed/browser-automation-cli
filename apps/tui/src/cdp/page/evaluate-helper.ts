@@ -1,5 +1,7 @@
+export type EvaluateFunction = (...args: never[]) => unknown;
+
 export function buildEvaluateExpression(
-	expressionOrFn: string | ((...args: any[]) => any),
+	expressionOrFn: string | EvaluateFunction,
 	args: unknown[],
 ): string {
 	const argsJson = args.map((a) => (a === undefined ? "undefined" : JSON.stringify(a))).join(",");

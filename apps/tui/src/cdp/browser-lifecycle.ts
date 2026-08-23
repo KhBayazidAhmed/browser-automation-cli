@@ -36,32 +36,29 @@ function installProcessHooks() {
 	process.on("SIGTERM", () => handleSignal("SIGTERM"));
 	process.on("SIGHUP", () => handleSignal("SIGHUP"));
 	process.on("exit", handleExit);
-	process.on("uncaughtException", (err) => {
-		handleExit();
-		console.error("Uncaught exception:", err);
-		process.exit(1);
-	});
-	process.on("unhandledRejection", (reason) => {
-		handleExit();
-		console.error("Unhandled rejection:", reason);
-		process.exit(1);
-	});
 }
 
 export async function cleanupOrphanChromeProcesses(): Promise<number> {
 	if (process.platform === "darwin" || process.platform === "linux") {
 		try {
-			const proc = Bun.spawn(["pgrep", "-f", "cdp-chrome-profile"], {
+			const proc = Bun.spawn(["ps", "-axo", "pid=,ppid=,command="], {
 				stdout: "pipe",
 			});
 			const output = await new Response(proc.stdout).text();
 			const pids = output
 				.split("\n")
-				.map((p) => p.trim())
-				.filter(Boolean);
+				.map((line) => line.trim().match(/^(\d+)\s+(\d+)\s+(.+)$/))
+				.filter((match): match is RegExpMatchArray =>
+					Boolean(
+						match &&
+							match[2] === "1" &&
+							/(?:cdp-chrome-profile-|cdp-cloned-profile-)/.test(match[3] || ""),
+					),
+				)
+				.map((match) => match[1]);
 			let killed = 0;
 			for (const p of pids) {
-				const pidNum = Number.parseInt(p, 10);
+				const pidNum = Number.parseInt(p || "", 10);
 				if (pidNum && pidNum !== process.pid) {
 					try {
 						process.kill(pidNum, "SIGKILL");

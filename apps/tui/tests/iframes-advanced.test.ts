@@ -53,8 +53,9 @@ describe("Advanced CDP Frame Engine & Lifecycle", () => {
 		await ctx.page.goto(ctx.server.url("/iframes-main"));
 		await new Promise((r) => setTimeout(r, 200));
 
-		const checkoutFrame = ctx.page.frame("checkoutFrame")!;
+		const checkoutFrame = ctx.page.frame("checkoutFrame");
 		expect(checkoutFrame).toBeDefined();
+		if (!checkoutFrame) throw new Error("checkoutFrame was not discovered");
 
 		const heading = await ctx.page.evaluateInContext<string>(
 			checkoutFrame.contextId,

@@ -22,9 +22,23 @@ export class Browser {
 	static async launch(options: LaunchOptions = {}): Promise<Browser> {
 		const launched = await launchChrome(options);
 		const browserClient = new CDPClient(launched.webSocketDebuggerUrl);
-		await browserClient.connect();
-
-		return new Browser(launched, browserClient);
+		try {
+			await browserClient.connect();
+			return new Browser(launched, browserClient);
+		} catch (error) {
+			try {
+				browserClient.close();
+				launched.process.kill();
+				await Promise.race([
+					launched.process.exited,
+					new Promise((resolve) => setTimeout(resolve, 1000)),
+				]);
+				if (launched.isTempProfile && existsSync(launched.userDataDir)) {
+					rmSync(launched.userDataDir, { recursive: true, force: true });
+				}
+			} catch {}
+			throw error;
+		}
 	}
 
 	async newPage(url = "about:blank"): Promise<Page> {
@@ -46,10 +60,18 @@ export class Browser {
 		}
 
 		const pageClient = new CDPClient(target.webSocketDebuggerUrl);
-		await pageClient.connect();
-
-		const page = new Page(pageClient, target.id);
-		await page.init();
+		let page: Page;
+		try {
+			await pageClient.connect();
+			page = new Page(pageClient, target.id);
+			await page.init();
+		} catch (error) {
+			pageClient.close();
+			await this.browserClient
+				.send("Target.closeTarget", { targetId: target.id })
+				.catch(() => undefined);
+			throw error;
+		}
 
 		this._pages.push(page);
 		return page;
@@ -66,6 +88,11 @@ export class Browser {
 		}>;
 
 		const pageTargets = targets.filter((t) => t.type === "page" && t.webSocketDebuggerUrl);
+		const liveIds = new Set(pageTargets.map((target) => target.id));
+		for (const stalePage of this._pages.filter((page) => !liveIds.has(page.targetId))) {
+			stalePage.client.close();
+		}
+		this._pages = this._pages.filter((page) => liveIds.has(page.targetId));
 		const existingIds = new Set(this._pages.map((p) => p.targetId));
 
 		for (const target of pageTargets) {

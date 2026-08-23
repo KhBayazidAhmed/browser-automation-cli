@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Subprocess, spawn } from "bun";
@@ -58,18 +58,19 @@ export function findSystemChrome(): string {
 
 export async function launchChrome(options: LaunchOptions = {}): Promise<LaunchedChrome> {
 	const executablePath = options.executablePath || findSystemChrome();
-	const port = options.port || Math.floor(Math.random() * (9999 - 9200 + 1)) + 9200;
-	const isTempProfile = !options.userDataDir;
+	const requestedPort = options.port ?? 0;
 	const userDataDir =
 		options.userDataDir ||
 		join(tmpdir(), `cdp-chrome-profile-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+	const isTempProfile =
+		!options.userDataDir || /(?:^|[/\\])cdp-cloned-profile-[^/\\]+$/.test(userDataDir);
 
 	if (!existsSync(userDataDir)) {
 		mkdirSync(userDataDir, { recursive: true });
 	}
 
 	const defaultArgs = [
-		`--remote-debugging-port=${port}`,
+		`--remote-debugging-port=${requestedPort}`,
 		`--user-data-dir=${userDataDir}`,
 		options.profileDirectory ? `--profile-directory=${options.profileDirectory}` : "",
 		options.headless !== false ? "--headless=new" : "",
@@ -92,22 +93,40 @@ export async function launchChrome(options: LaunchOptions = {}): Promise<Launche
 		...(options.args || []),
 	].filter(Boolean);
 
+	const devtoolsPortFile = join(userDataDir, "DevToolsActivePort");
+	const previousPortFile = existsSync(devtoolsPortFile)
+		? readFileSync(devtoolsPortFile, "utf-8")
+		: null;
 	const proc = spawn([executablePath, ...defaultArgs], {
 		stdout: "ignore",
-		stderr: "ignore",
+		stderr: "pipe",
 	});
+	const stderrPromise = new Response(proc.stderr).text();
 
 	// Poll until the CDP endpoint is responsive (typically 20-50ms)
-	const maxAttempts = 50;
+	const maxAttempts = 200;
 	const intervalMs = 50;
-	let versionInfo: any = null;
+	let port = requestedPort;
+	let versionInfo: { webSocketDebuggerUrl?: string; Browser?: string } | null = null;
 
 	for (let i = 0; i < maxAttempts; i++) {
 		try {
-			const res = await fetch(`http://127.0.0.1:${port}/json/version`);
-			if (res.ok) {
-				versionInfo = await res.json();
-				break;
+			if (port === 0 && existsSync(devtoolsPortFile)) {
+				const currentPortFile = readFileSync(devtoolsPortFile, "utf-8");
+				if (currentPortFile !== previousPortFile) {
+					const detectedPort = Number.parseInt(currentPortFile.split("\n")[0] || "", 10);
+					if (Number.isInteger(detectedPort) && detectedPort > 0) port = detectedPort;
+				}
+			}
+			if (port > 0) {
+				const res = await fetch(`http://127.0.0.1:${port}/json/version`);
+				if (res.ok) {
+					versionInfo = (await res.json()) as {
+						webSocketDebuggerUrl?: string;
+						Browser?: string;
+					};
+					break;
+				}
 			}
 		} catch {
 			// Chrome is still starting up
@@ -115,14 +134,18 @@ export async function launchChrome(options: LaunchOptions = {}): Promise<Launche
 		await new Promise((r) => setTimeout(r, intervalMs));
 	}
 
-	if (!versionInfo || !versionInfo.webSocketDebuggerUrl) {
+	if (!versionInfo?.webSocketDebuggerUrl) {
 		proc.kill();
+		await Promise.race([proc.exited, new Promise((resolve) => setTimeout(resolve, 1000))]);
+		const stderr = (await stderrPromise).trim();
 		if (isTempProfile) {
 			try {
 				rmSync(userDataDir, { recursive: true, force: true });
 			} catch {}
 		}
-		throw new Error(`Failed to connect to Chrome CDP on port ${port} within timeout.`);
+		throw new Error(
+			`Failed to connect to Chrome CDP${port > 0 ? ` on port ${port}` : ""} within 10 seconds.${stderr ? ` Chrome stderr: ${stderr.slice(-1200)}` : ""}`,
+		);
 	}
 
 	return {

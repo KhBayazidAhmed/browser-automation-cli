@@ -1,5 +1,13 @@
+import { mkdir } from "node:fs/promises";
+import { dirname } from "node:path";
 import type { Page } from "../page.js";
 import type { PDFOptions, ScreenshotOptions } from "./types.js";
+
+async function writeOutput(path: string | undefined, bytes: Uint8Array): Promise<void> {
+	if (!path) return;
+	await mkdir(dirname(path), { recursive: true });
+	await Bun.write(path, bytes);
+}
 
 export async function captureScreenshot(
 	page: Page,
@@ -17,16 +25,14 @@ export async function captureScreenshot(
 				y: clip.y,
 				width: clip.width,
 				height: clip.height,
-				scale: 1,
+				scale: clip.scale ?? 1,
 			},
 		});
 
 		const buffer = Buffer.from(response.data, "base64");
 		const uint8 = new Uint8Array(buffer);
 
-		if (options.path) {
-			await Bun.write(options.path, uint8);
-		}
+		await writeOutput(options.path, uint8);
 
 		return uint8;
 	}
@@ -43,20 +49,21 @@ export async function captureScreenshot(
 			mobile: false,
 		});
 
-		const response = await page.client.send("Page.captureScreenshot", {
-			format: options.format || "png",
-			quality: options.quality,
-			captureBeyondViewport: true,
-		});
-
-		await page.client.send("Emulation.clearDeviceMetricsOverride");
+		let response: { data: string };
+		try {
+			response = await page.client.send("Page.captureScreenshot", {
+				format: options.format || "png",
+				quality: options.quality,
+				captureBeyondViewport: true,
+			});
+		} finally {
+			await page.client.send("Emulation.clearDeviceMetricsOverride").catch(() => undefined);
+		}
 
 		const buffer = Buffer.from(response.data, "base64");
 		const uint8 = new Uint8Array(buffer);
 
-		if (options.path) {
-			await Bun.write(options.path, uint8);
-		}
+		await writeOutput(options.path, uint8);
 
 		return uint8;
 	}
@@ -69,9 +76,7 @@ export async function captureScreenshot(
 	const buffer = Buffer.from(response.data, "base64");
 	const uint8 = new Uint8Array(buffer);
 
-	if (options.path) {
-		await Bun.write(options.path, uint8);
-	}
+	await writeOutput(options.path, uint8);
 
 	return uint8;
 }
@@ -96,9 +101,7 @@ export async function generatePdf(page: Page, options: PDFOptions = {}): Promise
 	const buffer = Buffer.from(response.data, "base64");
 	const uint8 = new Uint8Array(buffer);
 
-	if (options.path) {
-		await Bun.write(options.path, uint8);
-	}
+	await writeOutput(options.path, uint8);
 
 	return uint8;
 }
@@ -108,10 +111,38 @@ export async function blockPageResources(
 	resourceTypes: string[] = ["image", "font", "media"],
 ): Promise<void> {
 	await page.init();
-	await page.client.send("Network.setBlockedURLs", {
-		urls: resourceTypes.map((t) => `*${t}*`),
+	const typeMap: Record<string, string> = {
+		image: "Image",
+		stylesheet: "Stylesheet",
+		font: "Font",
+		media: "Media",
+		script: "Script",
+	};
+	const types = [...new Set(resourceTypes.map((type) => typeMap[type]).filter(Boolean))];
+	await page.client.send("Fetch.disable").catch(() => undefined);
+	if (types.length === 0) return;
+	if (!resourceBlockHandlers.has(page)) {
+		const unsubscribe = page.client.on("Fetch.requestPaused", (params: { requestId?: string }) => {
+			if (!params?.requestId) return;
+			void page.client
+				.send("Fetch.failRequest", {
+					requestId: params.requestId,
+					errorReason: "BlockedByClient",
+				})
+				.catch(() => undefined);
+		});
+		resourceBlockHandlers.set(page, unsubscribe);
+	}
+	await page.client.send("Fetch.enable", {
+		patterns: types.map((resourceType) => ({
+			urlPattern: "*",
+			resourceType,
+			requestStage: "Request",
+		})),
 	});
 }
+
+const resourceBlockHandlers = new WeakMap<Page, () => void>();
 
 export async function getPerformanceMetrics(page: Page): Promise<Record<string, number>> {
 	await page.init();

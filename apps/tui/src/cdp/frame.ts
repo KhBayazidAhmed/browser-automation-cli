@@ -1,10 +1,7 @@
-import {
-	assertElementText,
-	getElementAttribute,
-	getElementText,
-	getMultipleElementTexts,
-} from "./page/page-extractors.js";
+import type { EvaluateFunction } from "./page/evaluate-helper.js";
+import { assertElementText, getElementAttribute, getElementText } from "./page/page-extractors.js";
 import { clearElement, clickElement, typeIntoElement } from "./page/page-interactions.js";
+import { getMultipleElementTexts } from "./page/page-multiple-extractors.js";
 import type {
 	AssertOptions,
 	SelectorOptions,
@@ -41,14 +38,14 @@ export class Frame {
 
 	get contextId(): number | undefined {
 		if (this._contextId !== undefined) return this._contextId;
-		return (this.page.frameManager as any)._frameIdToContext?.get(this.id);
+		return this.page.frameManager.contextIdForFrame(this.id);
 	}
 
 	set contextId(val: number | undefined) {
 		this._contextId = val;
 	}
 
-	async ensureContextId(timeout = 3000): Promise<number | undefined> {
+	async ensureContextId(timeout = 3000): Promise<number> {
 		if (this.contextId !== undefined) return this.contextId;
 		const start = Date.now();
 		while (this.contextId === undefined && Date.now() - start < timeout) {
@@ -63,12 +60,12 @@ export class Frame {
 				});
 				if (res?.executionContextId) {
 					this.contextId = res.executionContextId;
-					(this.page.frameManager as any)._frameIdToContext?.set(this.id, res.executionContextId);
-					return this.contextId;
+					this.page.frameManager.setContextIdForFrame(this.id, res.executionContextId);
+					return res.executionContextId;
 				}
 			} catch {}
 		}
-		return this.contextId;
+		throw new Error(`Unable to resolve an execution context for frame "${this.name || this.id}"`);
 	}
 
 	isMainFrame(): boolean {
@@ -85,7 +82,7 @@ export class Frame {
 	}
 
 	async evaluate<T = unknown>(
-		expressionOrFn: string | ((...args: any[]) => any),
+		expressionOrFn: string | EvaluateFunction,
 		...args: unknown[]
 	): Promise<T> {
 		const ctxId = await this.ensureContextId();
