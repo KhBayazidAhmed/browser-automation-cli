@@ -6,17 +6,20 @@ export interface TextMatchOptions {
 	startsWith?: string;
 	endsWith?: string;
 	normalizeWhitespace?: boolean;
+	frame?: string;
 }
 
 export interface SelectorOptions extends TextMatchOptions {
 	timeout?: number;
 	selector?: string;
+	frame?: string;
 }
 
 export interface TypeOptions extends TextMatchOptions {
 	clearFirst?: boolean;
 	timeout?: number;
 	targetText?: string;
+	frame?: string;
 }
 
 export interface AssertOptions extends TextMatchOptions {
@@ -27,6 +30,7 @@ export interface AssertOptions extends TextMatchOptions {
 	matches?: string | RegExp;
 	attribute?: string;
 	timeout?: number;
+	frame?: string;
 }
 
 export interface GotoOptions {
@@ -88,5 +92,6 @@ export function serializeMatchOptions(options: TextMatchOptions): Record<string,
 		attribute: opts.attribute,
 		equals: opts.equals,
 		contains: opts.contains,
+		frame: options.frame,
 	};
 }

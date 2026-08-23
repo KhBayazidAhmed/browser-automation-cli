@@ -1,4 +1,7 @@
 import type { CDPClient } from "./client.js";
+import type { Frame } from "./frame.js";
+import { buildEvaluateExpression } from "./page/evaluate-helper.js";
+import { type FrameIdentifier, FrameManager } from "./page/frame-manager.js";
 import { INJECTED_FIND_ELEMENT_SRC } from "./page/injected-element-finder.js";
 import {
 	assertElementText,
@@ -39,11 +42,14 @@ export type {
 
 export class Page {
 	private initialized = false;
+	public readonly frameManager: FrameManager;
 
 	constructor(
 		public readonly client: CDPClient,
 		public readonly targetId: string,
-	) {}
+	) {
+		this.frameManager = new FrameManager(this);
+	}
 
 	async init(): Promise<void> {
 		if (this.initialized) return;
@@ -53,7 +59,21 @@ export class Page {
 			this.client.send("DOM.enable"),
 			this.client.send("Network.enable"),
 		]);
+		await this.frameManager.init();
 		this.initialized = true;
+	}
+
+	mainFrame(): Frame {
+		return this.frameManager.mainFrame();
+	}
+	frames(): Frame[] {
+		return this.frameManager.frames();
+	}
+	frame(filter: FrameIdentifier): Frame | undefined {
+		return this.frameManager.getFrame(filter);
+	}
+	async waitForFrame(filter: FrameIdentifier, timeout = 10000): Promise<Frame> {
+		return this.frameManager.waitForFrame(filter, timeout);
 	}
 
 	async goto(url: string, options: GotoOptions = {}): Promise<void> {
@@ -80,33 +100,20 @@ export class Page {
 		await this.goto(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
 	}
 
-	async evaluate<T = unknown>(
+	async evaluateInContext<T = unknown>(
+		contextId: number | undefined,
 		expressionOrFn: string | ((...args: any[]) => any),
 		...args: unknown[]
 	): Promise<T> {
 		await this.init();
-		let expr: string;
-		const argsJson = args.map((a) => (a === undefined ? "undefined" : JSON.stringify(a))).join(",");
-
-		if (typeof expressionOrFn === "function") {
-			expr = `(${expressionOrFn.toString()})(${argsJson})`;
-		} else {
-			const str = expressionOrFn.trim();
-			const firstLine = str.split("\n")[0] || "";
-			if (args.length > 0 || str.includes("arguments")) {
-				expr = `(function() {\n${str}\n})(${argsJson})`;
-			} else if (str.startsWith("return ") || firstLine.trim().startsWith("return ")) {
-				expr = `(() => {\n${str}\n})()`;
-			} else {
-				expr = str;
-			}
-		}
-
-		const response = await this.client.send("Runtime.evaluate", {
+		const expr = buildEvaluateExpression(expressionOrFn, args);
+		const params: Record<string, unknown> = {
 			expression: expr,
 			returnByValue: true,
 			awaitPromise: true,
-		});
+		};
+		if (contextId !== undefined) params.contextId = contextId;
+		const response = await this.client.send("Runtime.evaluate", params);
 
 		if (response.exceptionDetails) {
 			const detail =
@@ -115,29 +122,57 @@ export class Page {
 				"Unknown evaluation error";
 			throw new Error(`Evaluation failed: ${detail}`);
 		}
-
 		return response.result?.value as T;
 	}
 
-	async waitForSelector(selector?: string, options: SelectorOptions = {}): Promise<boolean> {
+	async evaluate<T = unknown>(
+		expressionOrFn: string | ((...args: any[]) => any),
+		...args: unknown[]
+	): Promise<T> {
+		return this.evaluateInContext<T>(undefined, expressionOrFn, ...args);
+	}
+
+	async waitForSelectorInContext(
+		contextId: number | undefined,
+		selector?: string,
+		options: SelectorOptions = {},
+	): Promise<boolean> {
 		await this.init();
 		const timeout = options.timeout || 10000;
 		const startTime = Date.now();
 		const matchOpts = serializeMatchOptions(options);
 
 		while (Date.now() - startTime < timeout) {
-			const exists = await this.evaluate<boolean>(
-				`${INJECTED_FIND_ELEMENT_SRC}
-				return Boolean(__cdpFindElement(arguments[0], arguments[1]));`,
+			const exists = await this.evaluateInContext<boolean>(
+				contextId,
+				`${INJECTED_FIND_ELEMENT_SRC}\nreturn Boolean(__cdpFindElement(arguments[0], arguments[1]));`,
 				selector,
 				matchOpts,
 			);
 			if (exists) return true;
 			await new Promise((r) => setTimeout(r, 50));
 		}
-
 		throw new Error(
-			`Timeout waiting for element${selector ? ` "${selector}"` : ""}${options.text || options.strictText ? ` with text "${options.strictText || options.text}"` : ""}${options.regex ? ` matching /${options.regex}/` : ""} (${timeout}ms)`,
+			`Timeout waiting for element${selector ? ` "${selector}"` : ""}${options.text ? ` (text: "${options.text}")` : ""} (${timeout}ms)`,
+		);
+	}
+
+	async waitForSelector(selector?: string, options: SelectorOptions = {}): Promise<boolean> {
+		await this.init();
+		if (options.frame) {
+			const f = await this.frameManager.resolveFrame(options.frame);
+			const ctx = await f.ensureContextId();
+			return this.waitForSelectorInContext(ctx, selector, options);
+		}
+		const timeout = options.timeout || 10000;
+		const startTime = Date.now();
+		while (Date.now() - startTime < timeout) {
+			const targetFrame = await this.frameManager.findFrameWithElement(selector, options);
+			if (targetFrame) return true;
+			await new Promise((r) => setTimeout(r, 50));
+		}
+		throw new Error(
+			`Timeout waiting for element${selector ? ` "${selector}"` : ""}${options.text ? ` (text: "${options.text}")` : ""} (${timeout}ms)`,
 		);
 	}
 

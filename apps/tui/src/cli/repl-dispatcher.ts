@@ -16,10 +16,10 @@ export function printReplHelp() {
 	console.log(`\n${colors.bold}Available Commands:${colors.reset}`);
 	console.log(`  ${colors.cyan}goto <url>${colors.reset}               - Navigate to a webpage`);
 	console.log(
-		`  ${colors.cyan}title${colors.reset}                    - Print the current page title`,
+		`  ${colors.cyan}title${colors.reset}                    - Print the current page/frame title`,
 	);
 	console.log(
-		`  ${colors.cyan}url${colors.reset}                      - Print the current page URL`,
+		`  ${colors.cyan}url${colors.reset}                      - Print the current page/frame URL`,
 	);
 	console.log(
 		`  ${colors.cyan}text <selector>${colors.reset}          - Get text content of an element`,
@@ -29,7 +29,16 @@ export function printReplHelp() {
 		`  ${colors.cyan}type <selector> <text>${colors.reset}   - Type text into an input field`,
 	);
 	console.log(
-		`  ${colors.cyan}eval <code>${colors.reset}              - Evaluate JavaScript in the page`,
+		`  ${colors.cyan}frames${colors.reset}                   - List all iframes in the page`,
+	);
+	console.log(
+		`  ${colors.cyan}frame <id|name|url|idx>${colors.reset}  - Switch target context to an iframe`,
+	);
+	console.log(
+		`  ${colors.cyan}main${colors.reset}                     - Switch back to the top-level main frame`,
+	);
+	console.log(
+		`  ${colors.cyan}eval <code>${colors.reset}              - Evaluate JavaScript in the page/frame`,
 	);
 	console.log(
 		`  ${colors.cyan}shot [path]${colors.reset}              - Save a screenshot (default: output/repl-screenshot.png)`,

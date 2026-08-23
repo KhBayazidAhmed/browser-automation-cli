@@ -81,9 +81,9 @@ export const INJECTED_MODALS_SRC = `
     flowState.isPaused = !flowState.isPaused;
     persistState(); updateBadge();
     if (btnPause) btnPause.innerHTML = flowState.isPaused ? (${JSON.stringify(ICONS.play)} + " Resume") : (${JSON.stringify(ICONS.pause)} + " Pause");
-    const badgeEl = shadow.getElementById("badge");
-    badgeEl?.classList.toggle("paused", flowState.isPaused);
+    shadow.getElementById("badge")?.classList.toggle("paused", flowState.isPaused);
     showToast(flowState.isPaused ? "Recording paused" : "Recording resumed");
+    if (typeof broadcastModes === "function") broadcastModes();
     emitRecordEvent({ type: flowState.isPaused ? "pause" : "resume" });
   };
   btnPause?.addEventListener("click", togglePause);
@@ -94,6 +94,7 @@ export const INJECTED_MODALS_SRC = `
     isExtractMode = !isExtractMode; isListExtractMode = false; isAssertMode = false;
     btnExtract.classList.toggle("active", isExtractMode);
     btnList?.classList.remove("active"); btnAssert?.classList.remove("active-assert");
+    if (typeof broadcastModes === "function") broadcastModes();
     showToast(isExtractMode ? "Extract Mode ON" : "Extract Mode OFF");
   });
 
@@ -102,6 +103,7 @@ export const INJECTED_MODALS_SRC = `
     isListExtractMode = !isListExtractMode; isExtractMode = false; isAssertMode = false;
     btnList.classList.toggle("active", isListExtractMode);
     btnExtract?.classList.remove("active"); btnAssert?.classList.remove("active-assert");
+    if (typeof broadcastModes === "function") broadcastModes();
     showToast(isListExtractMode ? "List Mode ON" : "List Mode OFF");
   });
 
@@ -110,6 +112,7 @@ export const INJECTED_MODALS_SRC = `
     isAssertMode = !isAssertMode; isExtractMode = false; isListExtractMode = false;
     btnAssert.classList.toggle("active-assert", isAssertMode);
     btnExtract?.classList.remove("active"); btnList?.classList.remove("active");
+    if (typeof broadcastModes === "function") broadcastModes();
     showToast(isAssertMode ? "Assert Mode ON" : "Assert Mode OFF");
   });
 
@@ -137,9 +140,7 @@ export const INJECTED_MODALS_SRC = `
     if (!cam) return;
     const isActive = cam.sourceType && cam.sourceType !== "none";
     const statusPreview = shadow.getElementById("webcam-status-preview");
-    if (statusPreview) {
-      statusPreview.innerText = "Feed: " + (cam.sourceInfo || "None") + (isActive ? " (640x480 @ 30fps)" : "");
-    }
+    if (statusPreview) statusPreview.innerText = "Feed: " + (cam.sourceInfo || "None") + (isActive ? " (640x480 @ 30fps)" : "");
     const camBtn = shadow.getElementById("btn-webcam");
     if (camBtn) {
       camBtn.classList.toggle("active-cam", isActive);
@@ -148,33 +149,20 @@ export const INJECTED_MODALS_SRC = `
   }
 
   shadow.getElementById("btn-webcam")?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    updateWebcamStatusUI();
+    e.stopPropagation(); updateWebcamStatusUI();
     shadow.getElementById("modal-webcam-overlay")?.classList.add("open");
   });
-
   shadow.getElementById("btn-webcam-close")?.addEventListener("click", (e) => {
-    e?.stopPropagation();
-    shadow.getElementById("modal-webcam-overlay")?.classList.remove("open");
+    e?.stopPropagation(); shadow.getElementById("modal-webcam-overlay")?.classList.remove("open");
   });
-
   shadow.getElementById("btn-webcam-pattern")?.addEventListener("click", (e) => {
     e?.stopPropagation();
-    if (window.__cdpVirtualWebcam) {
-      window.__cdpVirtualWebcam.useTestPattern();
-      updateWebcamStatusUI();
-      showToast("Virtual Webcam: Test Pattern Active");
-    }
+    if (window.__cdpVirtualWebcam) { window.__cdpVirtualWebcam.useTestPattern(); updateWebcamStatusUI(); showToast("Virtual Webcam: Test Pattern Active"); }
     shadow.getElementById("modal-webcam-overlay")?.classList.remove("open");
   });
-
   shadow.getElementById("btn-webcam-solid")?.addEventListener("click", (e) => {
     e?.stopPropagation();
-    if (window.__cdpVirtualWebcam) {
-      window.__cdpVirtualWebcam.useColorFeed("#27272a");
-      updateWebcamStatusUI();
-      showToast("Virtual Webcam: Solid Slate Feed Active");
-    }
+    if (window.__cdpVirtualWebcam) { window.__cdpVirtualWebcam.useColorFeed("#27272a"); updateWebcamStatusUI(); showToast("Virtual Webcam: Solid Slate Feed Active"); }
     shadow.getElementById("modal-webcam-overlay")?.classList.remove("open");
   });
 
@@ -182,29 +170,16 @@ export const INJECTED_MODALS_SRC = `
     e?.stopPropagation();
     const inputUrl = shadow.getElementById("input-webcam-url");
     const url = inputUrl?.value?.trim();
-    if (!url) {
-      showToast("Please enter a valid video URL", true);
-      return;
-    }
+    if (!url) { showToast("Please enter a valid video URL", true); return; }
     if (window.__cdpVirtualWebcam) {
       showToast("Loading video stream URL...");
       const stream = await window.__cdpVirtualWebcam.setVideoUrl(url);
-      if (stream) {
-        updateWebcamStatusUI();
-        showToast("Virtual Webcam: Video URL Active");
-        shadow.getElementById("modal-webcam-overlay")?.classList.remove("open");
-      } else {
-        showToast("Failed to load video from URL", true);
-      }
+      if (stream) { updateWebcamStatusUI(); showToast("Virtual Webcam: Video URL Active"); shadow.getElementById("modal-webcam-overlay")?.classList.remove("open"); }
+      else showToast("Failed to load video from URL", true);
     }
   };
-
   shadow.getElementById("btn-webcam-url-apply")?.addEventListener("click", applyWebcamUrl);
-  shadow.getElementById("input-webcam-url")?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      applyWebcamUrl(e);
-    }
-  });
+  shadow.getElementById("input-webcam-url")?.addEventListener("keydown", (e) => { if (e.key === "Enter") applyWebcamUrl(e); });
 
   shadow.getElementById("input-webcam-file")?.addEventListener("change", async (e) => {
     const file = e.target?.files?.[0];
@@ -214,21 +189,15 @@ export const INJECTED_MODALS_SRC = `
     if (window.__cdpVirtualWebcam) {
       showToast("Loading video file: " + file.name);
       const stream = await window.__cdpVirtualWebcam.setVideoFile(file);
-      if (stream) {
-        updateWebcamStatusUI();
-        showToast("Virtual Webcam: Video File Active (" + file.name + ")");
-        shadow.getElementById("modal-webcam-overlay")?.classList.remove("open");
-      } else {
-        showToast("Failed to load video file", true);
-      }
+      if (stream) { updateWebcamStatusUI(); showToast("Virtual Webcam: Video File Active (" + file.name + ")"); shadow.getElementById("modal-webcam-overlay")?.classList.remove("open"); }
+      else showToast("Failed to load video file", true);
     }
   });
 
   shadow.getElementById("btn-webcam-reset")?.addEventListener("click", (e) => {
     e?.stopPropagation();
     if (window.__cdpVirtualWebcam) {
-      window.__cdpVirtualWebcam.clear();
-      updateWebcamStatusUI();
+      window.__cdpVirtualWebcam.clear(); updateWebcamStatusUI();
       const fileNameEl = shadow.getElementById("webcam-file-name");
       if (fileNameEl) fileNameEl.innerText = "No file selected";
       const inputUrl = shadow.getElementById("input-webcam-url");
@@ -245,9 +214,7 @@ export const INJECTED_MODALS_SRC = `
       persistState(); renderDrawer();
       emitRecordEvent({ type: "undo" });
       showToast("Undid step: " + (removed.name || removed.action));
-    } else {
-      showToast("No steps to undo", true);
-    }
+    } else showToast("No steps to undo", true);
   });
 
   btnStop?.addEventListener("click", (e) => {

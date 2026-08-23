@@ -17,6 +17,7 @@ export interface BaseStep {
 	[key: string]: unknown;
 	name?: string;
 	action: FlowActionType;
+	frame?: string;
 	text?: string;
 	strictText?: boolean | string;
 	ignoreCase?: boolean;

@@ -2,15 +2,19 @@ export const INJECTED_DOM_EVENTS_SRC = `
   function getBestSelector(el) {
     if (!el || el === document.body || el === document.documentElement) return "body";
     if (el.closest && el.closest("#__cdp_recorder_hud__")) return null;
-    const clickableParent = el.closest("button, a, [role='button'], input[type='submit']");
+    const tag = el.tagName.toLowerCase();
+    if (tag === "iframe" || tag === "frame") return null;
+    const clickableParent = el.closest ? el.closest("button, a, [role='button'], input[type='submit'], input[type='button'], [tabindex]") : null;
     if (clickableParent && clickableParent !== el && !isExtractMode && !isListExtractMode && !isAssertMode) el = clickableParent;
     if (el.id) return '#' + CSS.escape(el.id);
     if (el.name) return el.tagName.toLowerCase() + '[name="' + CSS.escape(el.name) + '"]';
     if (el.getAttribute('data-testid')) return '[data-testid="' + CSS.escape(el.getAttribute('data-testid')) + '"]';
+    if (el.getAttribute('data-action')) return '[data-action="' + CSS.escape(el.getAttribute('data-action')) + '"]';
+    if (el.getAttribute('data-qa')) return '[data-qa="' + CSS.escape(el.getAttribute('data-qa')) + '"]';
     if (el.getAttribute('aria-label')) return '[aria-label="' + CSS.escape(el.getAttribute('aria-label')) + '"]';
     if (el.getAttribute('placeholder')) return '[placeholder="' + CSS.escape(el.getAttribute('placeholder')) + '"]';
     if (el.className && typeof el.className === 'string') {
-      const classes = el.className.trim().split(/\\s+/).filter(c => c && !c.includes(':') && !c.includes('/'));
+      const classes = el.className.trim().split(/\\s+/).filter(c => c && !c.includes(':') && !c.includes('/') && !['active', 'hover', 'focus', 'selected', 'disabled', 'open'].includes(c));
       if (classes.length > 0) return el.tagName.toLowerCase() + '.' + CSS.escape(classes[0]);
     }
     const path = []; let current = el, depth = 0;
@@ -44,6 +48,7 @@ export const INJECTED_DOM_EVENTS_SRC = `
     if (flowState.isPaused || (!isExtractMode && !isListExtractMode && !isAssertMode && !e.shiftKey && !e.altKey)) return;
     const target = e.target;
     if (!target || target.closest("#__cdp_recorder_hud__")) return;
+    if (target.tagName && (target.tagName.toLowerCase() === "iframe" || target.tagName.toLowerCase() === "frame")) return;
     if (hoveredEl && hoveredEl !== target) hoveredEl.style.outline = "";
     hoveredEl = target;
     if (isListExtractMode) {
@@ -77,6 +82,7 @@ export const INJECTED_DOM_EVENTS_SRC = `
   document.addEventListener('click', (e) => {
     const target = e.target;
     if (!target || target.closest("#__cdp_recorder_hud__")) return;
+    if (target.tagName && (target.tagName.toLowerCase() === "iframe" || target.tagName.toLowerCase() === "frame")) return;
     if (flowState.isPaused) { e.preventDefault(); showToast("⏸️ Action ignored (recording is paused)", true); return; }
     const isExtract = isExtractMode || e.shiftKey;
     const isList = isListExtractMode;
@@ -131,7 +137,8 @@ export const INJECTED_DOM_EVENTS_SRC = `
       return;
     }
 
-    const text = target.innerText?.trim() || target.textContent?.trim() || ('value' in target ? String(target.value).trim() : '') || '';
+    const interactive = (target.closest && target.closest("button, a, [role='button'], input[type='submit'], input[type='button'], [tabindex]")) || target;
+    const text = interactive.innerText?.trim() || target.innerText?.trim() || interactive.textContent?.trim() || target.textContent?.trim() || ('value' in interactive ? String(interactive.value).trim() : '') || ('value' in target ? String(target.value).trim() : '') || '';
     const step = { name: text ? \`Click "\${text.slice(0, 40)}"\` : \`Click \${selector}\`, action: 'click', selector, text: text ? text.slice(0, 60) : undefined, strictText: text ? true : undefined };
     flowState.steps.push(step); persistState(); renderDrawer();
     emitRecordEvent({ type: 'click', selector, text: text.slice(0, 60), strictText: Boolean(text), url: window.location.href });

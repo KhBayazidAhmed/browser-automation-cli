@@ -7,15 +7,33 @@ import {
 	type TextMatchOptions,
 } from "./types.js";
 
+async function getContextId(
+	page: Page,
+	selector?: string,
+	options?: SelectorOptions,
+	explicitCtx?: number,
+): Promise<number | undefined> {
+	if (explicitCtx !== undefined) return explicitCtx;
+	if (options?.frame) {
+		const f = await page.frameManager.resolveFrame(options.frame);
+		return f.contextId;
+	}
+	const targetFrame = await page.frameManager.findFrameWithElement(selector, options);
+	return targetFrame?.contextId ?? page.frameManager.mainFrame().contextId;
+}
+
 export async function getElementText(
 	page: Page,
 	selector?: string,
 	options: SelectorOptions = {},
+	contextId?: number,
 ): Promise<string | null> {
 	await page.init();
+	const ctxId = await getContextId(page, selector, options, contextId);
 	const matchOpts = serializeMatchOptions(options);
 
-	return page.evaluate(
+	return page.evaluateInContext(
+		ctxId,
 		`${INJECTED_FIND_ELEMENT_SRC}
 		const el = __cdpFindElement(arguments[0], arguments[1]);
 		if (!el) return null;
@@ -30,11 +48,14 @@ export async function getMultipleElementTexts(
 	page: Page,
 	selector: string,
 	options: TextMatchOptions = {},
+	contextId?: number,
 ): Promise<string[]> {
 	await page.init();
+	const ctxId = await getContextId(page, selector, options, contextId);
 	const matchOpts = serializeMatchOptions(options);
 
-	return page.evaluate(
+	return page.evaluateInContext(
+		ctxId,
 		(sel: string, _opts: unknown) => {
 			const elements = Array.from(document.querySelectorAll(sel));
 			return elements
@@ -58,11 +79,14 @@ export async function getElementAttribute(
 	selector: string | undefined,
 	attribute: string,
 	options: SelectorOptions = {},
+	contextId?: number,
 ): Promise<string | null> {
 	await page.init();
+	const ctxId = await getContextId(page, selector, options, contextId);
 	const matchOpts = serializeMatchOptions(options);
 
-	return page.evaluate(
+	return page.evaluateInContext(
+		ctxId,
 		`${INJECTED_FIND_ELEMENT_SRC}
 		const el = __cdpFindElement(arguments[0], arguments[2]);
 		if (!el) return null;
@@ -77,8 +101,10 @@ export async function assertElementText(
 	page: Page,
 	selector: string | undefined,
 	options: AssertOptions = {},
+	contextId?: number,
 ): Promise<string> {
 	await page.init();
+	const ctxId = await getContextId(page, selector, options, contextId);
 	const timeout = options.timeout || 10000;
 	const startTime = Date.now();
 
@@ -107,7 +133,8 @@ export async function assertElementText(
 		"";
 
 	while (Date.now() - startTime < timeout) {
-		const result = await page.evaluate(
+		const result = await page.evaluateInContext(
+			ctxId,
 			`${INJECTED_FIND_ELEMENT_SRC}
 			const el = __cdpFindElement(arguments[0], arguments[1]);
 			if (!el) return { found: false, text: "" };

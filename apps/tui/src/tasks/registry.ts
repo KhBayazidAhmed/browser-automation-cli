@@ -107,6 +107,7 @@ export class TaskRegistry {
 			);
 
 			return {
+				taskId,
 				success: true,
 				data,
 				durationMs,
@@ -117,6 +118,7 @@ export class TaskRegistry {
 			console.log(`\n${colors.red}✗ Task failed after ${durationMs}ms: ${msg}${colors.reset}\n`);
 
 			return {
+				taskId,
 				success: false,
 				durationMs,
 				error: msg,

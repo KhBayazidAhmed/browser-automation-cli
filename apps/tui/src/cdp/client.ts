@@ -7,6 +7,7 @@ export interface CDPResponse<T = any> {
 	method?: string;
 	params?: any;
 	result?: T;
+	sessionId?: string;
 	error?: {
 		code: number;
 		message: string;
@@ -86,7 +87,9 @@ export class CDPClient {
 			if (listeners) {
 				for (const listener of listeners) {
 					try {
-						listener(msg.params);
+						listener(
+							msg.sessionId ? { ...(msg.params || {}), _sessionId: msg.sessionId } : msg.params,
+						);
 					} catch (e) {
 						console.error(`Error in CDP event listener for ${msg.method}:`, e);
 					}
@@ -95,7 +98,7 @@ export class CDPClient {
 		}
 	}
 
-	send<T = any>(method: string, params: Record<string, any> = {}): Promise<T> {
+	send<T = any>(method: string, params: Record<string, any> = {}, sessionId?: string): Promise<T> {
 		if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
 			return Promise.reject(new Error("CDP WebSocket is not connected"));
 		}
@@ -103,7 +106,9 @@ export class CDPClient {
 		const id = ++this.messageId;
 		return new Promise<T>((resolve, reject) => {
 			this.pendingRequests.set(id, { resolve, reject, method });
-			this.ws!.send(JSON.stringify({ id, method, params }));
+			const payload: Record<string, any> = { id, method, params };
+			if (sessionId) payload.sessionId = sessionId;
+			this.ws!.send(JSON.stringify(payload));
 		});
 	}
 

@@ -10,6 +10,7 @@ const IGNORE_DIRS = new Set([
 	".next",
 	"output",
 	".gemini",
+	".astro",
 ]);
 const TARGET_EXTENSIONS = new Set([".ts", ".js", ".json", ".jsonc"]);
 

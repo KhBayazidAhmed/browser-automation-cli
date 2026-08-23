@@ -23,6 +23,7 @@ export async function executeDomStep(
 			const s = step as ClickStep;
 			const selector = s.selector ? interpolate(s.selector, ctx) : undefined;
 			const text = s.text ? interpolate(s.text, ctx) : undefined;
+			const frame = s.frame ? interpolate(s.frame, ctx) : undefined;
 			const strictText =
 				typeof s.strictText === "string"
 					? interpolate(s.strictText, ctx)
@@ -32,6 +33,7 @@ export async function executeDomStep(
 							? true
 							: undefined;
 			await page.click(selector, {
+				frame,
 				text,
 				strictText,
 				ignoreCase: s.ignoreCase,
@@ -48,10 +50,12 @@ export async function executeDomStep(
 			const s = step as TypeStep;
 			const selector = s.selector ? interpolate(s.selector, ctx) : undefined;
 			const text = interpolate(s.text, ctx);
+			const frame = s.frame ? interpolate(s.frame, ctx) : undefined;
 			const targetText = s.targetText ? interpolate(s.targetText, ctx) : undefined;
 			const strictText =
 				typeof s.strictText === "string" ? interpolate(s.strictText, ctx) : s.strictText;
 			await page.type(selector, text, {
+				frame,
 				clearFirst: s.clearFirst,
 				timeout: s.timeout,
 				targetText,
@@ -75,6 +79,7 @@ export async function executeDomStep(
 			const s = step as WaitForSelectorStep;
 			const selector = s.selector ? interpolate(s.selector, ctx) : undefined;
 			const text = s.text ? interpolate(s.text, ctx) : undefined;
+			const frame = s.frame ? interpolate(s.frame, ctx) : undefined;
 			const strictText =
 				typeof s.strictText === "string"
 					? interpolate(s.strictText, ctx)
@@ -84,6 +89,7 @@ export async function executeDomStep(
 							? true
 							: undefined;
 			await page.waitForSelector(selector, {
+				frame,
 				timeout: s.timeout,
 				text,
 				strictText,

@@ -7,6 +7,7 @@ export function handleRecordedEvent(
 	setPaused: (paused: boolean) => void,
 	triggerFinish: () => void,
 ) {
+	const frame = (event.frame as string) || undefined;
 	if (event.type === "pause") setPaused(true);
 	else if (event.type === "resume") setPaused(false);
 	else if (event.type === "undo") steps.pop();
@@ -37,6 +38,7 @@ export function handleRecordedEvent(
 		steps.push({
 			name: event.text ? `Click "${event.text}"` : `Click ${event.selector}`,
 			action: "click",
+			frame,
 			selector: event.selector as string,
 			text: (event.text as string) || undefined,
 			strictText: event.text ? true : undefined,
@@ -45,6 +47,7 @@ export function handleRecordedEvent(
 		steps.push({
 			name: `Type into ${event.selector}`,
 			action: "type",
+			frame,
 			selector: event.selector as string,
 			text: event.value as string,
 			targetText: (event.targetText as string) || undefined,
@@ -54,6 +57,7 @@ export function handleRecordedEvent(
 		steps.push({
 			name: `Extract "${event.as}" from ${event.selector}`,
 			action: "extract",
+			frame,
 			selector: event.selector as string,
 			as: event.as as string,
 			text: (event.text as string) || (event.sampleValue as string) || undefined,
@@ -63,6 +67,7 @@ export function handleRecordedEvent(
 		steps.push({
 			name: `Extract List "${event.as}" from ${event.containerSelector}`,
 			action: "extractMultiple",
+			frame,
 			containerSelector: event.containerSelector as string,
 			as: event.as as string,
 			limit: (event.limit as number) || 20,
@@ -78,6 +83,7 @@ export function handleRecordedEvent(
 		steps.push({
 			name: (event.name as string) || `Assert ${event.selector} strictly equals "${assertVal}"`,
 			action: "assert",
+			frame,
 			selector: event.selector as string,
 			text: (event.text as string) || assertVal,
 			equals: (event.equals as string) || (event.strictText ? assertVal : undefined),
@@ -97,6 +103,7 @@ export function handleRecordedEvent(
 		steps.push({
 			name: (event.name as string) || `Wait for ${event.selector || event.text}`,
 			action: "waitForSelector",
+			frame,
 			selector: (event.selector as string) || undefined,
 			text: (event.text as string) || undefined,
 			strictText: (event.strictText as boolean) || undefined,
@@ -105,6 +112,7 @@ export function handleRecordedEvent(
 		steps.push({
 			name: (event.name as string) || "Eval JavaScript",
 			action: "eval",
+			frame,
 			code: event.code as string,
 			as: (event.as as string) || undefined,
 		});

@@ -25,9 +25,11 @@ export async function executeExtractStep(
 			const s = step as ExtractStep;
 			const selector = s.selector ? interpolate(s.selector, ctx) : undefined;
 			const rawText = s.text ? interpolate(s.text, ctx) : undefined;
+			const frame = s.frame ? interpolate(s.frame, ctx) : undefined;
 			const rawStrict =
 				typeof s.strictText === "string" ? interpolate(s.strictText, ctx) : s.strictText;
 			return page.getText(selector, {
+				frame,
 				text: rawText,
 				strictText: rawStrict,
 				ignoreCase: s.ignoreCase,
@@ -42,7 +44,12 @@ export async function executeExtractStep(
 			const s = step as ExtractMultipleStep;
 			const containerSelector = interpolate(s.containerSelector, ctx);
 			const filterText = s.filterText ? interpolate(s.filterText, ctx) : undefined;
-			return page.evaluate(
+			const frameIdentifier = s.frame ? interpolate(s.frame, ctx) : undefined;
+			const targetFrame = frameIdentifier
+				? await page.frameManager.resolveFrame(frameIdentifier)
+				: page.mainFrame();
+
+			return targetFrame.evaluate(
 				(
 					cSel: string,
 					fMap: Record<string, string>,
@@ -92,6 +99,11 @@ export async function executeExtractStep(
 			const s = step as EvalStep;
 			const code = s.code || s.script || "";
 			const interpolatedCode = interpolate(code, ctx);
+			const frameIdentifier = s.frame ? interpolate(s.frame, ctx) : undefined;
+			if (frameIdentifier) {
+				const f = await page.frameManager.resolveFrame(frameIdentifier);
+				return f.evaluate(interpolatedCode);
+			}
 			return page.evaluate(interpolatedCode);
 		}
 
@@ -131,6 +143,7 @@ export async function executeExtractStep(
 			const s = step as AssertStep;
 			const selector = s.selector ? interpolate(s.selector, ctx) : undefined;
 			const rawText = s.text ? interpolate(s.text, ctx) : undefined;
+			const frame = s.frame ? interpolate(s.frame, ctx) : undefined;
 			const rawStrict =
 				typeof s.strictText === "string" ? interpolate(s.strictText, ctx) : s.strictText;
 			const rawEquals = s.equals ? interpolate(s.equals, ctx) : undefined;
@@ -140,6 +153,7 @@ export async function executeExtractStep(
 			const rawMatches = s.matches ? interpolate(s.matches, ctx) : undefined;
 
 			return page.assertText(selector, {
+				frame,
 				text: rawText,
 				strictText: rawStrict,
 				equals: rawEquals,

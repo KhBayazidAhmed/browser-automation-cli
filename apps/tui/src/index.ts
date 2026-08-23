@@ -13,7 +13,6 @@ function extractProfileConfig(cliArgs: string[]): {
 	profileDirectory?: string;
 } {
 	const directMode = cliArgs.includes("--direct-profile");
-
 	const customUserDataArg = cliArgs.find((a) => a.startsWith("--user-data-dir="));
 	const customProfileDirArg = cliArgs.find(
 		(a) => a.startsWith("--profile-directory=") || a.startsWith("--profile-dir="),
@@ -46,8 +45,26 @@ function extractProfileConfig(cliArgs: string[]): {
 			`\x1b[33m⚠ Profile matching "${target}" not found. Falling back to clean profile.\x1b[0m`,
 		);
 	}
-
 	return {};
+}
+
+function parseCliKeyValues(cliArgs: string[], startIndex: number): Record<string, any> {
+	const vars: Record<string, any> = {};
+	for (let i = startIndex; i < cliArgs.length; i++) {
+		const raw = cliArgs[i] || "";
+		if (
+			raw.startsWith("--profile") ||
+			raw.startsWith("--user-data-dir") ||
+			raw.startsWith("--headed")
+		)
+			continue;
+		const cleaned = raw.startsWith("--") ? raw.slice(2) : raw;
+		const [k, v] = cleaned.split("=");
+		if (k && v !== undefined)
+			vars[k] =
+				v === "true" ? true : v === "false" ? false : Number.isNaN(Number(v)) ? v : Number(v);
+	}
+	return vars;
 }
 
 async function main() {
@@ -60,32 +77,27 @@ async function main() {
 	const isHeaded = args.includes("--headed") || args.includes("--headless=false");
 	const urlArgIndex = args.indexOf("--url");
 	const screenshotArgIndex = args.indexOf("--screenshot");
-
-	// Profile config from CLI flags
 	const profileConfig = extractProfileConfig(args);
 
-	// List Discovered Profiles Command (e.g. bun src/index.ts profiles)
 	if (isProfilesList) {
 		const profiles = detectBrowserProfiles();
-		console.log("\n👤 Discovered System Browser Profiles:");
-		console.log("═══════════════════════════════════════════════════════════════════");
-		if (profiles.length === 0) {
-			console.log("  No standard Chrome/Brave/Edge profiles discovered.");
-		} else {
+		console.log("\n👤 Discovered System Browser Profiles:\n" + "═".repeat(67));
+		if (profiles.length === 0) console.log("  No standard Chrome/Brave/Edge profiles discovered.");
+		else {
 			for (const p of profiles) {
-				console.log(`\n• \x1b[1m\x1b[36m${p.displayName}\x1b[0m`);
-				console.log(`  Profile ID:   \x1b[33m--profile=${p.id}\x1b[0m`);
-				console.log(`  Directory:    \x1b[2m${p.profilePath}\x1b[0m`);
+				console.log(
+					`\n• \x1b[1m\x1b[36m${p.displayName}\x1b[0m\n  Profile ID:   \x1b[33m--profile=${p.id}\x1b[0m\n  Directory:    \x1b[2m${p.profilePath}\x1b[0m`,
+				);
 			}
 		}
-		console.log("\n═══════════════════════════════════════════════════════════════════");
 		console.log(
-			"Use in any command: \x1b[32mbun src/index.ts <record|flow|task|repl> --profile=<id>\x1b[0m\n",
+			"\n" +
+				"═".repeat(67) +
+				"\nUse in any command: \x1b[32mbun src/index.ts <record|flow|task|repl> --profile=<id>\x1b[0m\n",
 		);
 		process.exit(0);
 	}
 
-	// Record Flow Command (e.g. bun src/index.ts record workflows/my-flow.json https://news.ycombinator.com --profile=google-chrome-profile-1)
 	if (isRecord) {
 		const outputPath =
 			args[1] && !args[1].startsWith("--") ? args[1] : `workflows/recorded-${Date.now()}.json`;
@@ -98,7 +110,6 @@ async function main() {
 		process.exit(0);
 	}
 
-	// Declarative Flow Execution (e.g. bun src/index.ts flow workflows/hn-top-stories.json)
 	if (isFlow && args[1]) {
 		const filePath = args[1];
 		const file = Bun.file(filePath);
@@ -106,7 +117,6 @@ async function main() {
 			console.error(`\x1b[31mError: Flow file not found at "${filePath}"\x1b[0m`);
 			process.exit(1);
 		}
-
 		let flowDef: FlowDefinition;
 		try {
 			flowDef = (await file.json()) as FlowDefinition;
@@ -115,25 +125,7 @@ async function main() {
 			process.exit(1);
 		}
 
-		const overrideVars: Record<string, any> = {};
-		for (let i = 2; i < args.length; i++) {
-			const raw = args[i] || "";
-			if (
-				raw.startsWith("--profile") ||
-				raw.startsWith("--user-data-dir") ||
-				raw.startsWith("--headed")
-			) {
-				continue;
-			}
-			const cleaned = raw.startsWith("--") ? raw.slice(2) : raw;
-			const [k, v] = cleaned.split("=");
-			if (k && v !== undefined) {
-				overrideVars[k] =
-					v === "true" ? true : v === "false" ? false : Number.isNaN(Number(v)) ? v : Number(v);
-			}
-		}
-
-		const result = await FlowRunner.run(flowDef, overrideVars, {
+		const result = await FlowRunner.run(flowDef, parseCliKeyValues(args, 2), {
 			headless: !isHeaded,
 			userDataDir: profileConfig.userDataDir,
 			profileDirectory: profileConfig.profileDirectory,
@@ -141,50 +133,28 @@ async function main() {
 		process.exit(result.success ? 0 : 1);
 	}
 
-	// Task List Command (e.g. bun src/index.ts tasks)
 	if (isTasksList) {
-		console.log("\n⚡ Available Automation Tasks:");
-		console.log("═══════════════════════════════════════════════════════════════════");
+		console.log("\n⚡ Available Automation Tasks:\n" + "═".repeat(67));
 		for (const task of taskRegistry.list()) {
-			console.log(`\n• \x1b[1m\x1b[36m${task.id}\x1b[0m - ${task.name}`);
-			console.log(`  \x1b[2m${task.description}\x1b[0m`);
+			console.log(
+				`\n• \x1b[1m\x1b[36m${task.id}\x1b[0m - ${task.name}\n  \x1b[2m${task.description}\x1b[0m`,
+			);
 			if (task.params && task.params.length > 0) {
 				console.log("  Parameters:");
-				for (const p of task.params) {
+				for (const p of task.params)
 					console.log(`    --${p.name}=<value> : ${p.description} (default: ${p.default})`);
-				}
 			}
 		}
-		console.log("\n═══════════════════════════════════════════════════════════════════");
 		console.log(
-			"Run any task with: \x1b[32mbun src/index.ts task <task-id> [--param=val] [--profile=<id>]\x1b[0m\n",
+			"\n" +
+				"═".repeat(67) +
+				"\nRun any task with: \x1b[32mbun src/index.ts task <task-id> [--param=val] [--profile=<id>]\x1b[0m\n",
 		);
 		process.exit(0);
 	}
 
-	// Task Execution Command (e.g. bun src/index.ts task scrape-hn limit=5)
 	if (isTaskRun && args[1] && args[1] !== "list") {
-		const taskId = args[1];
-		const taskArgs: Record<string, string | boolean | number> = {};
-
-		for (let i = 2; i < args.length; i++) {
-			const raw = args[i] || "";
-			if (
-				raw.startsWith("--profile") ||
-				raw.startsWith("--user-data-dir") ||
-				raw.startsWith("--headed")
-			) {
-				continue;
-			}
-			const cleaned = raw.startsWith("--") ? raw.slice(2) : raw;
-			const [k, v] = cleaned.split("=");
-			if (k && v !== undefined) {
-				taskArgs[k] =
-					v === "true" ? true : v === "false" ? false : Number.isNaN(Number(v)) ? v : Number(v);
-			}
-		}
-
-		const result = await taskRegistry.runTask(taskId, taskArgs, {
+		const result = await taskRegistry.runTask(args[1], parseCliKeyValues(args, 2), {
 			headless: !isHeaded,
 			userDataDir: profileConfig.userDataDir,
 			profileDirectory: profileConfig.profileDirectory,
@@ -192,25 +162,20 @@ async function main() {
 		process.exit(result.success ? 0 : 1);
 	}
 
-	// Cleanup Orphan Browsers Command (e.g. bun src/index.ts cleanup)
 	if (args[0] === "cleanup") {
 		console.log("\n🧹 Cleaning up any lingering orphan Chrome browser processes...");
 		const killed = await Browser.cleanupOrphans();
-		if (killed > 0) {
-			console.log(
-				`\x1b[32m✓ Successfully terminated ${killed} orphan Chrome process(es).\x1b[0m\n`,
-			);
-		} else {
-			console.log("\x1b[32m✓ Clean: No lingering orphan Chrome processes found.\x1b[0m\n");
-		}
+		console.log(
+			killed > 0
+				? `\x1b[32m✓ Successfully terminated ${killed} orphan Chrome process(es).\x1b[0m\n`
+				: "\x1b[32m✓ Clean: No lingering orphan Chrome processes found.\x1b[0m\n",
+		);
 		process.exit(0);
 	}
 
-	// One-shot CLI command (e.g. --url https://example.com --screenshot out.png)
 	if (urlArgIndex !== -1 && args[urlArgIndex + 1]) {
 		const url = args[urlArgIndex + 1] ?? "";
 		const screenshotPath = screenshotArgIndex !== -1 ? args[screenshotArgIndex + 1] : undefined;
-
 		console.log(`\n🚀 Launching lightweight CDP automation for: ${url}`);
 		let browser: Browser | null = null;
 		try {
@@ -220,12 +185,10 @@ async function main() {
 				profileDirectory: profileConfig.profileDirectory,
 			});
 			const page = await browser.newPage();
-
 			const start = performance.now();
 			await page.goto(url);
 			const title = await page.title();
 			console.log(`✓ Loaded: "${title}" in ${Math.round(performance.now() - start)}ms`);
-
 			if (screenshotPath) {
 				const bytes = await page.screenshot({ path: screenshotPath });
 				console.log(
@@ -233,9 +196,7 @@ async function main() {
 				);
 			}
 		} finally {
-			if (browser) {
-				await browser.close();
-			}
+			if (browser) await browser.close();
 		}
 		process.exit(0);
 	}
@@ -249,7 +210,6 @@ async function main() {
 		return;
 	}
 
-	// Default: Launch Modern Interactive Wizard
 	await runInteractiveWizard();
 }
 

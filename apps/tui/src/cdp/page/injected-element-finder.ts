@@ -74,6 +74,15 @@ function __cdpFindElement(sel, opts) {
     }
   }
 
+  if (s && !targetText) {
+    let isValidCss = true;
+    try { document.querySelector(s); } catch (e) { isValidCss = false; }
+    if (!isValidCss) {
+      targetText = s;
+      s = "";
+    }
+  }
+
   const normalize = (str) => {
     if (str === null || str === undefined) return "";
     let res = String(str);
@@ -112,30 +121,62 @@ function __cdpFindElement(sel, opts) {
     if (el.innerText) candidates.push(el.innerText);
     if (el.textContent && el.textContent !== el.innerText) candidates.push(el.textContent);
     if (el.value !== undefined && typeof el.value === "string" && el.value.length > 0) candidates.push(el.value);
-    const placeholder = el.getAttribute ? el.getAttribute("placeholder") : null;
-    if (placeholder) candidates.push(placeholder);
-    const ariaLabel = el.getAttribute ? el.getAttribute("aria-label") : null;
-    if (ariaLabel) candidates.push(ariaLabel);
-    const title = el.getAttribute ? el.getAttribute("title") : null;
-    if (title) candidates.push(title);
-
+    if (el.getAttribute) {
+      for (const attr of ["placeholder", "aria-label", "title", "data-text", "data-testid", "label", "name", "alt"]) {
+        const val = el.getAttribute(attr);
+        if (val) candidates.push(val);
+      }
+    }
     return candidates.some(checkStringMatch);
+  };
+
+  const isVisible = (el) => {
+    try {
+      const style = window.getComputedStyle(el);
+      if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0") return false;
+      const rect = el.getBoundingClientRect();
+      return rect.width > 0 || rect.height > 0 || el.getClientRects().length > 0;
+    } catch { return true; }
+  };
+
+  const queryDeep = (root, selector) => {
+    const list = [];
+    try { list.push(...Array.from(root.querySelectorAll(selector))); } catch {}
+    try {
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+      let node = walker.nextNode();
+      while (node) {
+        if (node.shadowRoot) { list.push(...queryDeep(node.shadowRoot, selector)); }
+        node = walker.nextNode();
+      }
+    } catch {}
+    return list;
   };
 
   if (s) {
     try {
-      const candidates = Array.from(document.querySelectorAll(s));
-      if (!targetText && !regex && !startsWith && !endsWith) return candidates[0] || null;
+      const candidates = queryDeep(document, s);
+      if (!targetText && !regex && !startsWith && !endsWith) {
+        const vis = candidates.find(isVisible);
+        return vis || candidates[0] || null;
+      }
       for (const el of candidates) {
         if (matchesText(el)) return el;
       }
     } catch {}
   }
 
-  if (targetText || regex || startsWith || endsWith) {
-    const all = Array.from(document.querySelectorAll("button, a, input, textarea, select, [role='button'], p, span, h1, h2, h3, h4, h5, h6, label, div, td, th, li"));
+  if (targetText || regex || startsWith || endsWith || s) {
+    const fallbackText = targetText || s;
+    const all = queryDeep(document, "button, a, input, textarea, select, [role='button'], [tabindex], p, span, h1, h2, h3, h4, h5, h6, label, div, td, th, li, lux-button, mam-button, nav-item");
     for (const el of all) {
       if (matchesText(el)) return el;
+    }
+    if (!targetText && fallbackText) {
+      targetText = fallbackText;
+      for (const el of all) {
+        if (matchesText(el)) return el;
+      }
     }
   }
 

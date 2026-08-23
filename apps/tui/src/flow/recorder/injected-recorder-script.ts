@@ -15,6 +15,7 @@ export const INJECTED_ADVANCED_RECORDER_SCRIPT = `
   }
   window.__cdpRecorderInjected = true;
 
+  const isTopWindow = window === window.top;
   let flowState = { name: "Recorded Flow", steps: [], variables: {}, isPaused: false };
   try {
     const saved = sessionStorage.getItem("__cdp_flow_state__");
@@ -28,9 +29,60 @@ export const INJECTED_ADVANCED_RECORDER_SCRIPT = `
     try { sessionStorage.setItem("__cdp_flow_state__", JSON.stringify(flowState)); } catch {}
   }
 
-  function emitRecordEvent(event) {
-    if (window.__cdpRecordEvent) window.__cdpRecordEvent(JSON.stringify(event));
+  function getFrameIdentifier() {
+    if (window === window.top) return undefined;
+    if (window.name && window.name.trim()) return window.name.trim();
+    try {
+      if (window.location.host && window.location.pathname && window.location.pathname !== "/" && window.location.pathname !== "blank") {
+        return window.location.host + window.location.pathname;
+      }
+      if (window.location.pathname && window.location.pathname !== "/" && window.location.pathname !== "blank") {
+        return window.location.pathname;
+      }
+      if (window.location.host) return window.location.host;
+    } catch {}
+    return window.location.href;
   }
+
+  function emitRecordEvent(event) {
+    const frameId = getFrameIdentifier();
+    if (frameId && !event.frame) event.frame = frameId;
+    if (window.__cdpRecordEvent) {
+      window.__cdpRecordEvent(JSON.stringify(event));
+    } else if (!isTopWindow && window.top) {
+      try { window.top.postMessage({ type: "__cdp_child_record_event__", payload: event }, "*"); } catch {}
+    }
+  }
+
+  function broadcastModes() {
+    if (!isTopWindow) return;
+    try {
+      const iframes = document.querySelectorAll("iframe, frame");
+      for (let i = 0; i < iframes.length; i++) {
+        try {
+          iframes[i].contentWindow?.postMessage({
+            type: "__cdp_recorder_mode__",
+            isExtractMode,
+            isListExtractMode,
+            isAssertMode,
+            isPaused: flowState.isPaused,
+          }, "*");
+        } catch {}
+      }
+    } catch {}
+  }
+
+  window.addEventListener("message", (e) => {
+    if (!e.data) return;
+    if (e.data.type === "__cdp_recorder_mode__") {
+      if (typeof e.data.isExtractMode === "boolean") isExtractMode = e.data.isExtractMode;
+      if (typeof e.data.isListExtractMode === "boolean") isListExtractMode = e.data.isListExtractMode;
+      if (typeof e.data.isAssertMode === "boolean") isAssertMode = e.data.isAssertMode;
+      if (typeof e.data.isPaused === "boolean") flowState.isPaused = e.data.isPaused;
+    } else if (e.data.type === "__cdp_child_record_event__" && isTopWindow && e.data.payload) {
+      emitRecordEvent(e.data.payload);
+    }
+  });
 
   const hudContainer = document.createElement("div");
   hudContainer.id = "__cdp_recorder_hud__";
@@ -38,6 +90,13 @@ export const INJECTED_ADVANCED_RECORDER_SCRIPT = `
 
   const shadow = hudContainer.attachShadow({ mode: "open" });
   shadow.innerHTML = ${JSON.stringify(`<style>${HUD_STYLES}</style>${HUD_HTML}`)};
+
+  if (!isTopWindow) {
+    const barEl = shadow.getElementById("bar");
+    if (barEl) barEl.style.display = "none";
+    const drawerEl = shadow.getElementById("drawer");
+    if (drawerEl) drawerEl.style.display = "none";
+  }
 
   function showToast(msg, isWarn = false) {
     const toast = shadow.getElementById("toast");
@@ -98,7 +157,7 @@ export const INJECTED_ADVANCED_RECORDER_SCRIPT = `
   function mountHud() {
     if (!document.getElementById("__cdp_recorder_hud__") && (document.body || document.documentElement)) {
       (document.body || document.documentElement).appendChild(hudContainer);
-      updateBadge();
+      if (isTopWindow) updateBadge();
     }
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mountHud);
