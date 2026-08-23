@@ -1,5 +1,23 @@
 import type { FlowStep } from "../types.js";
 
+const SENSITIVE_NAME = /(password|passwd|secret|token|api.?key|credential|otp|one.?time)/i;
+const RESERVED_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
+export function isSafeRecorderVariableKey(key: string): boolean {
+	return /^[A-Za-z_][A-Za-z0-9_.-]*$/.test(key) && !RESERVED_KEYS.has(key);
+}
+
+export function sanitizeRecorderValue(key: string, value: unknown): unknown {
+	if (!SENSITIVE_NAME.test(key)) return value;
+	if (typeof value === "string" && /^\{\{env\.[A-Z_][A-Z0-9_]*\}\}$/.test(value)) return value;
+	const envKey = key
+		.replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+		.toUpperCase()
+		.replace(/[^A-Z0-9]+/g, "_")
+		.replace(/^_+|_+$/g, "");
+	return `{{env.${envKey || "RECORDED_SECRET"}}}`;
+}
+
 export function handleRecordedEvent(
 	event: Record<string, unknown>,
 	steps: FlowStep[],
@@ -24,16 +42,20 @@ export function handleRecordedEvent(
 			steps[fromIndex] &&
 			steps[toIndex]
 		) {
-			const item = steps.splice(fromIndex, 1)[0]!;
-			steps.splice(toIndex, 0, item);
+			const item = steps.splice(fromIndex, 1)[0];
+			if (item) steps.splice(toIndex, 0, item);
 		}
 	} else if (event.type === "addVariable") {
-		variables[event.key as string] = event.value;
+		const key = event.key as string;
+		if (isSafeRecorderVariableKey(key)) variables[key] = sanitizeRecorderValue(key, event.value);
 	} else if (event.type === "setVariables") {
 		Object.keys(variables).forEach((k) => {
 			delete variables[k];
 		});
-		Object.assign(variables, event.variables);
+		const incoming = event.variables as Record<string, unknown>;
+		for (const [key, value] of Object.entries(incoming || {})) {
+			if (isSafeRecorderVariableKey(key)) variables[key] = sanitizeRecorderValue(key, value);
+		}
 	} else if (event.type === "click") {
 		steps.push({
 			name: event.text ? `Click "${event.text}"` : `Click ${event.selector}`,
@@ -44,12 +66,13 @@ export function handleRecordedEvent(
 			strictText: event.text ? true : undefined,
 		});
 	} else if (event.type === "type") {
+		const hint = `${String(event.targetText || "")} ${String(event.selector || "")}`;
 		steps.push({
 			name: `Type into ${event.selector}`,
 			action: "type",
 			frame,
 			selector: event.selector as string,
-			text: event.value as string,
+			text: sanitizeRecorderValue(hint, event.value) as string,
 			targetText: (event.targetText as string) || undefined,
 			strictText: true,
 		});
@@ -60,8 +83,6 @@ export function handleRecordedEvent(
 			frame,
 			selector: event.selector as string,
 			as: event.as as string,
-			text: (event.text as string) || (event.sampleValue as string) || undefined,
-			strictText: true,
 		});
 	} else if (event.type === "extractMultiple") {
 		steps.push({

@@ -57,8 +57,8 @@ describe("Flow Recorder - Live Config Drawer & Custom Inserters Suite", () => {
 						recordedSteps.splice(event.index, 1);
 					} else if (event.type === "moveStep") {
 						const { fromIndex, toIndex } = event;
-						const item = recordedSteps.splice(fromIndex, 1)[0]!;
-						recordedSteps.splice(toIndex, 0, item);
+						const item = recordedSteps.splice(fromIndex, 1)[0];
+						if (item) recordedSteps.splice(toIndex, 0, item);
 					} else if (event.type === "addVariable") {
 						recordedVariables[event.key] = event.value;
 					} else if (event.type === "setVariables") {

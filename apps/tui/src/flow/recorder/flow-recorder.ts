@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync } from "node:fs";
-import { dirname } from "node:path";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { basename, dirname } from "node:path";
 import type * as readline from "node:readline";
 import { Browser } from "../../cdp/browser.js";
 import type { FlowDefinition, FlowStep } from "../types.js";
@@ -15,6 +15,23 @@ const colors = {
 	cyan: "\x1b[36m",
 };
 
+const SENSITIVE_URL_PARAM =
+	/^(?:access_?token|auth|authorization|code|credential|jwt|key|ott|password|refresh_?token|secret|session|sid|token)$/i;
+
+function containsSensitiveUrlData(rawUrl: string): boolean {
+	try {
+		const url = new URL(rawUrl);
+		if (Array.from(url.searchParams.keys()).some((key) => SENSITIVE_URL_PARAM.test(key)))
+			return true;
+		return /(?:access_?token|code|credential|jwt|password|refresh_?token|secret|session|sid|token)=/i.test(
+			url.hash,
+		);
+	} catch {
+		return false;
+	}
+}
+
+// biome-ignore lint/complexity/noStaticOnlyClass: Retained as the established public API.
 export class FlowRecorder {
 	static async record(
 		outputPath: string,
@@ -23,6 +40,7 @@ export class FlowRecorder {
 			userDataDir?: string;
 			profileDirectory?: string;
 			headless?: boolean;
+			signal?: AbortSignal;
 		} = {},
 	): Promise<FlowDefinition> {
 		const steps: FlowStep[] = [];
@@ -32,17 +50,37 @@ export class FlowRecorder {
 		let isPaused = false;
 
 		const flowName =
-			outputPath
-				.split("/")
-				.pop()
-				?.replace(/\.json$/i, "")
+			basename(outputPath)
+				.replace(/\.json$/i, "")
 				.replace(/[^a-z0-9]/gi, " ")
 				.trim() || "Recorded Flow";
+		const dir = dirname(outputPath);
+		if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+		const buildFlowDefinition = (): FlowDefinition => ({
+			name: flowName,
+			description: `Recorded on ${new Date().toLocaleString()}`,
+			steps,
+			variables,
+		});
+		const saveDraft = () => {
+			writeFileSync(outputPath, JSON.stringify(buildFlowDefinition(), null, 2));
+		};
+		const syncDraftSafely = async (sync: () => Promise<void>) => {
+			try {
+				await sync();
+			} catch (error) {
+				console.error(
+					`Unable to update recorder draft: ${error instanceof Error ? error.message : String(error)}`,
+				);
+			}
+		};
 
 		printRecordingHeader(initialUrl, outputPath);
+		saveDraft();
 
 		let browser: Browser | null = null;
 		let rl: readline.Interface | null = null;
+		let abortHandler: (() => void) | null = null;
 
 		try {
 			browser = await Browser.launch({
@@ -75,8 +113,12 @@ export class FlowRecorder {
 					finishResolver?.();
 				}
 			};
+			abortHandler = triggerFinish;
+			if (options.signal?.aborted) triggerFinish();
+			else options.signal?.addEventListener("abort", abortHandler, { once: true });
 
 			const syncStateToBrowser = async () => {
+				saveDraft();
 				try {
 					await page.evaluate(
 						(stateStr) => {
@@ -94,12 +136,18 @@ export class FlowRecorder {
 
 			page.client.on("close", triggerFinish);
 
-			page.client.on("Page.frameNavigated", async (params: unknown) => {
+			page.client.on("Page.frameNavigated", (params: unknown) => {
 				if (isPaused) return;
 				const frame = (params as { frame?: { parentId?: string; url?: string } })?.frame;
 				if (frame && !frame.parentId && frame.url && frame.url !== "about:blank") {
 					if (frame.url !== lastUrl) {
 						lastUrl = frame.url;
+						if (containsSensitiveUrlData(frame.url)) {
+							console.log(
+								`  ${colors.dim}Skipped navigation containing sensitive session parameters.${colors.reset}`,
+							);
+							return;
+						}
 						const step: FlowStep = {
 							name: `Navigate to ${new URL(frame.url).hostname || frame.url}`,
 							action: "goto",
@@ -109,7 +157,7 @@ export class FlowRecorder {
 						console.log(
 							`  ${colors.cyan}🌐 [NAVIGATE]${colors.reset} ${frame.url} ${colors.dim}(Step ${steps.length})${colors.reset}`,
 						);
-						await syncStateToBrowser();
+						void syncDraftSafely(syncStateToBrowser);
 					}
 				}
 			});
@@ -119,6 +167,12 @@ export class FlowRecorder {
 				if ((p.name === "__cdpRecordEvent" || p.name === "__cdpRecordEvent__") && p.payload) {
 					try {
 						const event = JSON.parse(p.payload);
+						if (event.type === "goto" && containsSensitiveUrlData(String(event.url || ""))) {
+							console.log(
+								`  ${colors.dim}Skipped navigation containing sensitive session parameters.${colors.reset}`,
+							);
+							return;
+						}
 						handleRecordedEvent(
 							event,
 							steps,
@@ -128,6 +182,7 @@ export class FlowRecorder {
 							},
 							triggerFinish,
 						);
+						void syncDraftSafely(syncStateToBrowser);
 					} catch {}
 				}
 			});
@@ -149,6 +204,7 @@ export class FlowRecorder {
 
 			await finishPromise;
 		} finally {
+			if (abortHandler) options.signal?.removeEventListener("abort", abortHandler);
 			if (rl) {
 				try {
 					rl.close();
@@ -157,18 +213,7 @@ export class FlowRecorder {
 			if (browser) await browser.close();
 		}
 
-		// Ensure workflows directory exists
-		const dir = dirname(outputPath);
-		if (!existsSync(dir)) {
-			mkdirSync(dir, { recursive: true });
-		}
-
-		const flowDef: FlowDefinition = {
-			name: flowName,
-			description: `Recorded on ${new Date().toLocaleString()}`,
-			steps,
-			variables,
-		};
+		const flowDef = buildFlowDefinition();
 
 		await Bun.write(outputPath, JSON.stringify(flowDef, null, 2));
 		console.log(`\n${colors.green}✓ Saved recorded flow to:${colors.reset} ${outputPath}`);

@@ -116,6 +116,20 @@ describe("Flow Recorder - Actions, Navigation & Controls Suite", () => {
 		expect((typeStep as Record<string, unknown>).targetText).toBe("Work Email");
 	});
 
+	test("3b. replaces sensitive input values with environment references", async () => {
+		await ctx.page.evaluate(() => {
+			const input = document.getElementById("auth-token") as HTMLInputElement;
+			input.value = "must-not-be-recorded";
+			input.dispatchEvent(new Event("change", { bubbles: true }));
+		});
+		const secretStep = recordedSteps.find(
+			(step) =>
+				step.action === "type" && (step as Record<string, unknown>).selector === "#auth-token",
+		);
+		expect((secretStep as Record<string, unknown>)?.text).toBe("{{env.AUTH_TOKEN}}");
+		expect(JSON.stringify(recordedSteps)).not.toContain("must-not-be-recorded");
+	});
+
 	test("4. records instant screenshot step via HUD toolbar button", async () => {
 		const initLen = recordedSteps.length;
 		await ctx.page.evaluate(() => {

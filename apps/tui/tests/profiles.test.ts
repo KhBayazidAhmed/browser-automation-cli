@@ -173,18 +173,18 @@ describe("Browser Profiles Discovery & Cloning Engine", () => {
 		const outFlowPath = join(tmpdir(), `test-recorded-flow-${Date.now()}.json`);
 
 		// Launch recorder in headless mode for testing with custom profile
+		const controller = new AbortController();
 		const recordPromise = FlowRecorder.record(outFlowPath, "about:blank", {
 			headless: true,
 			userDataDir: customProfileDir,
+			signal: controller.signal,
 		});
 
 		// Allow browser launch and recorder script initialization
 		await new Promise((r) => setTimeout(r, 1000));
 
-		// Connect to Chrome or trigger finish by simulating terminal finish/file write
-		// Since record is waiting for finish, we can kill/close or await
-		// FlowRecorder saves flow definition on finish
-		const browserList = await Browser.cleanupOrphans(); // will cleanup background orphans if any
+		controller.abort();
+		await recordPromise;
 
 		expect(existsSync(canaryPath)).toBe(true);
 		expect(readFileSync(canaryPath, "utf-8")).toBe("AUTHENTICATED_SESSION_OK");

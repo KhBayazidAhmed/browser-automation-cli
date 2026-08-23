@@ -1,5 +1,6 @@
 import * as readline from "node:readline";
 import type { FlowStep } from "../types.js";
+import { isSafeRecorderVariableKey, sanitizeRecorderValue } from "./recorder-event-bridge.js";
 
 const colors = {
 	reset: "\x1b[0m",
@@ -206,12 +207,13 @@ export function setupTerminalInterface(
 
 			case "v":
 			case "var": {
-				const [k, v] = argStr.split("=");
-				if (k && v !== undefined) {
-					variables[k.trim()] = v.trim();
-					console.log(
-						`  ${colors.magenta}✓ [VARIABLE]${colors.reset} Set "${k.trim()}" = "${v.trim()}"`,
-					);
+				const equalsIndex = argStr.indexOf("=");
+				const key = equalsIndex === -1 ? "" : argStr.slice(0, equalsIndex).trim();
+				const rawValue = equalsIndex === -1 ? undefined : argStr.slice(equalsIndex + 1).trim();
+				if (isSafeRecorderVariableKey(key) && rawValue !== undefined) {
+					const value = sanitizeRecorderValue(key, rawValue);
+					variables[key] = value;
+					console.log(`  ${colors.magenta}✓ [VARIABLE]${colors.reset} Set "${key}" = "${value}"`);
 					await onSyncState();
 				} else console.log(`${colors.red}Usage: v <variable_name>=<default_value>${colors.reset}`);
 				break;

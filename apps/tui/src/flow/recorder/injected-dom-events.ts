@@ -1,4 +1,15 @@
 export const INJECTED_DOM_EVENTS_SRC = `
+  function getSensitiveInputReference(el) {
+    if (!el) return null;
+    const hint = [el.id, el.name, el.getAttribute?.('aria-label'), el.getAttribute?.('autocomplete')]
+      .filter(Boolean).join(' ');
+    const isSensitive = String(el.type || '').toLowerCase() === 'password' || /(password|passwd|secret|token|api.?key|credential|otp|one.?time)/i.test(hint);
+    if (!isSensitive) return null;
+    const keyBase = (el.id || el.name || el.getAttribute?.('aria-label') || 'RECORDED_SECRET')
+      .toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    return '{{env.' + (keyBase || 'RECORDED_SECRET') + '}}';
+  }
+
   function getBestSelector(el) {
     if (!el || el === document.body || el === document.documentElement) return "body";
     if (el.closest && el.closest("#__cdp_recorder_hud__")) return null;
@@ -108,9 +119,9 @@ export const INJECTED_DOM_EVENTS_SRC = `
       const text = target.innerText?.trim() || target.textContent?.trim() || "";
       const defaultVar = "extracted_" + extractCount;
       openVariableModal("🔍 Save Extracted Variable", text.slice(0, 80), defaultVar, (varName) => {
-        const step = { name: \`Extract "\${varName}" from \${selector}\`, action: 'extract', selector, as: varName, text: text.slice(0, 100) || undefined, strictText: true };
+        const step = { name: \`Extract "\${varName}" from \${selector}\`, action: 'extract', selector, as: varName };
         flowState.steps.push(step); persistState(); renderDrawer();
-        emitRecordEvent({ type: 'extract', selector, as: varName, sampleValue: text.slice(0, 40), text: text.slice(0, 100) || undefined, url: window.location.href });
+        emitRecordEvent({ type: 'extract', selector, as: varName, sampleValue: text.slice(0, 40), url: window.location.href });
         showToast(\`✓ Extracted "\${varName}": "\${text.slice(0, 20)}..."\`);
       });
       if (hoveredEl) hoveredEl.style.outline = ""; isExtractMode = false; btnExtract?.classList.remove("active"); if (tooltip) tooltip.style.display = "none";
@@ -152,9 +163,11 @@ export const INJECTED_DOM_EVENTS_SRC = `
     const selector = getBestSelector(target);
     if (!selector) return;
     const targetText = target.placeholder || target.getAttribute('aria-label') || target.name || target.id || '';
-    const step = { name: \`Type into \${selector}\`, action: 'type', selector, text: target.value, targetText: targetText || undefined, strictText: true };
+    const secretRef = getSensitiveInputReference(target);
+    const recordedValue = secretRef || target.value;
+    const step = { name: \`Type into \${selector}\`, action: 'type', selector, text: recordedValue, targetText: targetText || undefined, strictText: true };
     flowState.steps.push(step); persistState(); renderDrawer();
-    emitRecordEvent({ type: 'type', selector, value: target.value, targetText, strictText: true, url: window.location.href });
-    showToast(\`✓ Input: "\${target.value}"\`);
+    emitRecordEvent({ type: 'type', selector, value: recordedValue, targetText, strictText: true, sensitive: Boolean(secretRef), url: window.location.href });
+    showToast(secretRef ? \`✓ Sensitive input saved as \${secretRef}\` : \`✓ Input: "\${target.value}"\`);
   }, true);
 `;

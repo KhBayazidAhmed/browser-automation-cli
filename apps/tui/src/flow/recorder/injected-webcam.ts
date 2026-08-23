@@ -1,5 +1,3 @@
-import { ICONS } from "./hud-icons.js";
-
 export const INJECTED_WEBCAM_SRC = `
   if (!window.__cdpVirtualWebcam) {
     window.__cdpVirtualWebcam = {
