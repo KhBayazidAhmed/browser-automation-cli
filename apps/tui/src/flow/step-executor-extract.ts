@@ -1,8 +1,10 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { Page } from "../cdp/page.js";
+import { redactSensitive } from "../data/redaction.js";
 import { resolveTuiPath } from "../runtime-paths.js";
 import { serializeCsv } from "./csv.js";
+import { captureSecurePdf, captureSecureScreenshot } from "./screenshot-security.js";
 import type {
 	AssertStep,
 	BlockStep,
@@ -133,7 +135,6 @@ export async function executeExtractStep(
 			const types = (s.types || ["image", "media", "font"]).map(String);
 			return page.blockResources(types);
 		}
-
 		case "screenshot": {
 			const s = step as ScreenshotStep;
 			let clip: { x: number; y: number; width: number; height: number; scale?: number } | undefined;
@@ -173,7 +174,8 @@ export async function executeExtractStep(
 					throw new Error(`Cannot capture screenshot for invisible selector "${selector}"`);
 				}
 			}
-			const shotBuffer = await page.screenshot({
+			const secrets = Array.isArray(ctx.__sensitiveValues) ? ctx.__sensitiveValues.map(String) : [];
+			const shotBuffer = await captureSecureScreenshot(page, secrets, {
 				fullPage: clip ? false : s.fullPage,
 				clip,
 			});
@@ -188,7 +190,8 @@ export async function executeExtractStep(
 
 		case "pdf": {
 			const s = step as PDFStep;
-			const pdfBuffer = await page.pdf();
+			const secrets = Array.isArray(ctx.__sensitiveValues) ? ctx.__sensitiveValues.map(String) : [];
+			const pdfBuffer = await captureSecurePdf(page, secrets);
 			if (s.path) {
 				const outPath = resolveTuiPath(interpolate(s.path, ctx));
 				await mkdir(dirname(outPath), { recursive: true });
@@ -236,7 +239,10 @@ export async function executeExtractStep(
 				ctx.extractedData && typeof ctx.extractedData === "object"
 					? (ctx.extractedData as Record<string, unknown>)
 					: {};
-			const content = s.format === "csv" ? serializeCsv(data) : JSON.stringify(data, null, 2);
+			const secrets = Array.isArray(ctx.__sensitiveValues) ? ctx.__sensitiveValues.map(String) : [];
+			const safeData = redactSensitive(data, secrets);
+			const content =
+				s.format === "csv" ? serializeCsv(safeData) : JSON.stringify(safeData, null, 2);
 			await writeFile(outPath, content, "utf-8");
 			return { savedTo: outPath };
 		}

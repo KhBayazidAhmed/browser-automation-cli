@@ -1,6 +1,12 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { Browser } from "../cdp/browser.js";
+import { redactSensitive } from "../data/redaction.js";
+import {
+	mergeVariableScopes,
+	referencedEnvironmentVariables,
+	type VariableScopes,
+} from "../data/variables.js";
 import { OUTPUT_DIR } from "../runtime-paths.js";
 import {
 	logFlowStart,
@@ -28,6 +34,9 @@ export class FlowRunner {
 			headless?: boolean;
 			userDataDir?: string;
 			profileDirectory?: string;
+			variableScopes?: Omit<VariableScopes, "workflow" | "cli">;
+			writeArtifacts?: boolean;
+			redactValues?: string[];
 		} = {},
 	): Promise<FlowExecutionResult> {
 		const outputDir = OUTPUT_DIR;
@@ -52,17 +61,34 @@ export class FlowRunner {
 				data: extractedData,
 				error: error instanceof Error ? error.message : String(error),
 			};
-			const resultFile = join(outputDir, `${runFileStem(invalidResult.flowName)}-result.json`);
-			await Bun.write(
-				resultFile,
-				JSON.stringify({ ...invalidResult, timestamp: new Date().toISOString() }, null, 2),
-			);
+			if (options.writeArtifacts !== false) {
+				const resultFile = join(outputDir, `${runFileStem(invalidResult.flowName)}-result.json`);
+				await Bun.write(
+					resultFile,
+					JSON.stringify({ ...invalidResult, timestamp: new Date().toISOString() }, null, 2),
+				);
+			}
 			return invalidResult;
 		}
+		const redactValues = [
+			...new Set([
+				...(options.redactValues || []),
+				...referencedEnvironmentVariables(validatedFlow)
+					.map((name) => process.env[name] || "")
+					.filter(Boolean),
+			]),
+		];
 
-		const variables: Record<string, unknown> = {
-			...validatedFlow.variables,
-			...overrideVars,
+		const variableScopes: VariableScopes = {
+			...options.variableScopes,
+			workflow: validatedFlow.variables,
+			cli: overrideVars,
+			system: {
+				__sensitiveValues: redactValues,
+				extractedData,
+				outputDir,
+				...options.variableScopes?.system,
+			},
 		};
 
 		logFlowStart(validatedFlow.name, validatedFlow.description, validatedFlow.steps.length);
@@ -90,12 +116,18 @@ export class FlowRunner {
 				logStepStart(i + 1, validatedFlow.steps.length, stepName);
 
 				try {
-					const extracted = await executeStep(step, page, {
-						...variables,
-						...extractedData,
-						extractedData,
-						outputDir,
-					});
+					const extracted = await executeStep(
+						step,
+						page,
+						mergeVariableScopes({
+							...variableScopes,
+							step: {
+								...variableScopes.step,
+								...step.variables,
+								...extractedData,
+							},
+						}),
+					);
 
 					const s = step as Record<string, unknown>;
 					if (extracted !== undefined && "as" in step && s.as) {
@@ -115,7 +147,8 @@ export class FlowRunner {
 					logStepPass(durationMs);
 				} catch (err: unknown) {
 					const durationMs = Math.round(performance.now() - stepStart);
-					const errorMsg = err instanceof Error ? err.message : String(err);
+					const rawError = err instanceof Error ? err.message : String(err);
+					const errorMsg = redactSensitive(rawError, redactValues);
 					stepResults.push({
 						stepIndex: i + 1,
 						name: stepName,
@@ -138,7 +171,10 @@ export class FlowRunner {
 				data: extractedData,
 			};
 		} catch (err: unknown) {
-			const errorMsg = err instanceof Error ? err.message : String(err);
+			const errorMsg = redactSensitive(
+				err instanceof Error ? err.message : String(err),
+				redactValues,
+			);
 			result = {
 				flowName: validatedFlow.name,
 				success: false,
@@ -153,6 +189,7 @@ export class FlowRunner {
 			}
 		}
 
+		if (options.writeArtifacts === false) return result;
 		const fileStem = runFileStem(validatedFlow.name);
 		const resultFile = join(outputDir, `${fileStem}-result.json`);
 		await Bun.write(

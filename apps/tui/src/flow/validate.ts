@@ -56,6 +56,62 @@ export function parseFlowDefinition(value: unknown): FlowDefinition {
 	) {
 		throw new Error('Flow "variables" must be an object');
 	}
+	if (flow.data !== undefined) {
+		if (!flow.data || typeof flow.data !== "object" || Array.isArray(flow.data)) {
+			throw new Error('Flow "data" must be an object');
+		}
+		if (!hasString(flow.data as Record<string, unknown>, "source")) {
+			throw new Error('Flow "data.source" must be a non-empty string');
+		}
+		const data = flow.data as Record<string, unknown>;
+		if (
+			data.results !== undefined &&
+			(!data.results || typeof data.results !== "object" || Array.isArray(data.results))
+		) {
+			throw new Error('Flow "data.results" must be an object');
+		}
+		if (
+			data.results &&
+			(Object.keys(data.results as Record<string, unknown>).some((key) => !key.trim()) ||
+				Object.values(data.results as Record<string, unknown>).some(
+					(value) => typeof value !== "string" || !value,
+				))
+		) {
+			throw new Error('Flow "data.results" keys and values must be non-empty strings');
+		}
+		if (
+			data.sensitiveColumns !== undefined &&
+			(!Array.isArray(data.sensitiveColumns) ||
+				data.sensitiveColumns.some((value) => typeof value !== "string" || !value))
+		) {
+			throw new Error('Flow "data.sensitiveColumns" must contain non-empty strings');
+		}
+	}
+	if (
+		flow.dataSources !== undefined &&
+		(!flow.dataSources || typeof flow.dataSources !== "object" || Array.isArray(flow.dataSources))
+	) {
+		throw new Error('Flow "dataSources" must be an object');
+	}
+	if (flow.dataSources && typeof flow.dataSources === "object") {
+		for (const [name, source] of Object.entries(flow.dataSources as Record<string, unknown>)) {
+			if (!source || typeof source !== "object" || Array.isArray(source)) {
+				throw new Error(`Flow data source "${name}" must be an object`);
+			}
+			const config = source as Record<string, unknown>;
+			if (!hasString(config, "provider")) {
+				throw new Error(`Flow data source "${name}" requires a provider`);
+			}
+			assertOptionalString(config, "uri", `Flow data source "${name}"`);
+			assertOptionalString(config, "account", `Flow data source "${name}"`);
+			if (
+				config.options !== undefined &&
+				(!config.options || typeof config.options !== "object" || Array.isArray(config.options))
+			) {
+				throw new Error(`Flow data source "${name}" has non-object "options"`);
+			}
+		}
+	}
 	assertOptionalString(flow, "description", "Flow");
 	assertOptionalString(flow, "version", "Flow");
 	assertOptionalBoolean(flow, "headless", "Flow");
@@ -75,6 +131,12 @@ export function parseFlowDefinition(value: unknown): FlowDefinition {
 		}
 		for (const key of ["ignoreCase", "normalizeWhitespace"]) {
 			assertOptionalBoolean(step, key, label);
+		}
+		if (
+			step.variables !== undefined &&
+			(!step.variables || typeof step.variables !== "object" || Array.isArray(step.variables))
+		) {
+			throw new Error(`${label} has non-object "variables"`);
 		}
 		if (
 			step.strictText !== undefined &&

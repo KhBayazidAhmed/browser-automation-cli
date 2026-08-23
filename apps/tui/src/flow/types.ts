@@ -25,6 +25,7 @@ export interface BaseStep {
 	startsWith?: string;
 	endsWith?: string;
 	normalizeWhitespace?: boolean;
+	variables?: Record<string, unknown>;
 }
 
 export interface GotoStep extends BaseStep {
@@ -174,6 +175,20 @@ export interface FlowDefinition {
 	description?: string;
 	version?: string;
 	variables?: Record<string, unknown>;
+	data?: {
+		source: string;
+		results?: Record<string, string>;
+		sensitiveColumns?: string[];
+	};
+	dataSources?: Record<
+		string,
+		{
+			provider: string;
+			uri?: string;
+			account?: string;
+			options?: Record<string, unknown>;
+		}
+	>;
 	steps: FlowStep[];
 	headless?: boolean;
 	blockMedia?: boolean;
