@@ -1,7 +1,9 @@
 import { isAbsolute, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 
-export const TUI_ROOT_DIR = fileURLToPath(new URL("../", import.meta.url));
+// Workflow definitions and generated output are user-owned project files. Resolving
+// them from cwd also works from a standalone executable, where import.meta.url
+// points inside Bun's embedded filesystem.
+export const TUI_ROOT_DIR = process.cwd();
 export const WORKFLOWS_DIR = join(TUI_ROOT_DIR, "workflows");
 export const OUTPUT_DIR = join(TUI_ROOT_DIR, "output");
 

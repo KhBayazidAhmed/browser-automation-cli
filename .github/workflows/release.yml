@@ -1,0 +1,156 @@
+name: Release standalone CLI
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.asset }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: bun-darwin-arm64
+            asset: bflow-darwin-arm64
+            executable: bflow
+            archive: tar
+            runner: macos-15
+          - target: bun-darwin-x64
+            asset: bflow-darwin-x64
+            executable: bflow
+            archive: tar
+            runner: macos-15-intel
+          - target: bun-linux-arm64
+            asset: bflow-linux-arm64
+            executable: bflow
+            archive: tar
+            runner: ubuntu-latest
+          - target: bun-linux-arm64-musl
+            asset: bflow-linux-arm64-musl
+            executable: bflow
+            archive: tar
+            runner: ubuntu-latest
+          - target: bun-linux-x64-baseline
+            asset: bflow-linux-x64
+            executable: bflow
+            archive: tar
+            runner: ubuntu-latest
+          - target: bun-linux-x64-musl
+            asset: bflow-linux-x64-musl
+            executable: bflow
+            archive: tar
+            runner: ubuntu-latest
+          - target: bun-windows-arm64
+            asset: bflow-windows-arm64
+            executable: bflow.exe
+            archive: zip
+            runner: ubuntu-latest
+          - target: bun-windows-x64-baseline
+            asset: bflow-windows-x64
+            executable: bflow.exe
+            archive: zip
+            runner: ubuntu-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Validate tag version
+        shell: bash
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          package_version="$(bun -p 'require("./package.json").version')"
+          if [ "$tag_version" != "$package_version" ]; then
+            echo "Tag version $tag_version does not match package version $package_version" >&2
+            exit 1
+          fi
+
+      - name: Validate public installers
+        shell: bash
+        run: |
+          cmp install.sh apps/docs/public/install.sh
+          cmp install.ps1 apps/docs/public/install.ps1
+
+      - name: Build executable
+        shell: bash
+        run: |
+          mkdir -p build dist
+          version="${GITHUB_REF_NAME#v}"
+          bun scripts/build-release.ts "${{ matrix.target }}" "build/${{ matrix.executable }}" "$version"
+
+      - name: Sign macOS executable with JIT entitlements
+        if: startsWith(matrix.target, 'bun-darwin-')
+        shell: bash
+        run: codesign --verify --verbose "build/${{ matrix.executable }}"
+
+      - name: Smoke-test native executable
+        if: startsWith(matrix.target, 'bun-darwin-') || matrix.target == 'bun-linux-x64-baseline'
+        shell: bash
+        run: |
+          chmod 755 "build/${{ matrix.executable }}"
+          expected="bflow ${GITHUB_REF_NAME#v}"
+          actual="$("build/${{ matrix.executable }}" --version)"
+          if [ "$actual" != "$expected" ]; then
+            echo "Expected '$expected', received '$actual'" >&2
+            exit 1
+          fi
+
+      - name: Package Unix executable
+        if: matrix.archive == 'tar'
+        shell: bash
+        run: |
+          chmod 755 "build/${{ matrix.executable }}"
+          tar -C build -czf "dist/${{ matrix.asset }}.tar.gz" "${{ matrix.executable }}"
+
+      - name: Package Windows executable
+        if: matrix.archive == 'zip'
+        shell: bash
+        run: zip -j "dist/${{ matrix.asset }}.zip" "build/${{ matrix.executable }}"
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Generate checksums
+        shell: bash
+        run: cd dist && sha256sum * > SHA256SUMS
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes --title "$GITHUB_REF_NAME"
+          fi

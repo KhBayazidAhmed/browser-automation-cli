@@ -1,21 +1,27 @@
 import { resolve } from "node:path";
 import { Browser, detectBrowserProfiles } from "./cdp/index.js";
+import { handleDataCommand, handleSheetsCommand } from "./cli/data-commands.js";
+import { handleWorkflowCommand } from "./cli/workflow-command.js";
 import { startRepl } from "./cli.js";
 import { extractProfileConfig, flagValue, parseCliKeyValues, printUsage } from "./cli-args.js";
 import { FlowRecorder } from "./flow/recorder.js";
 import { FlowRunner } from "./flow/runner.js";
 import type { FlowDefinition } from "./flow/types.js";
 import { parseFlowDefinition } from "./flow/validate.js";
+import { startMcpServer } from "./mcp/index.js";
 import { resolveTuiPath, WORKFLOWS_DIR } from "./runtime-paths.js";
 import { taskRegistry } from "./tasks/registry.js";
 import { runInteractiveWizard } from "./tui/wizard.js";
+import { CLI_NAME, CLI_VERSION } from "./version.js";
 
 const args = process.argv.slice(2);
 
 async function main() {
 	const isRepl = args[0] === "repl";
+	const isMcp = args[0] === "mcp";
 	const isRecord = args[0] === "record";
 	const isFlow = args[0] === "flow" && Boolean(args[1]);
+	const isWorkflow = args[0] === "workflow" && args[1] === "run" && Boolean(args[2]);
 	const isProfilesList = args[0] === "profiles" || (args[0] === "profile" && args[1] === "list");
 	const isTasksList = args[0] === "tasks" || (args[0] === "task" && args[1] === "list");
 	const isTaskRun = args[0] === "task" || args[0] === "run";
@@ -23,13 +29,31 @@ async function main() {
 	const directUrl = flagValue(args, "--url");
 	const screenshotPath = flagValue(args, "--screenshot");
 	const needsBrowserProfile =
-		isRecord || isFlow || isRepl || Boolean(directUrl) || (isTaskRun && args[1] !== "list");
+		isRecord ||
+		isFlow ||
+		isWorkflow ||
+		isRepl ||
+		Boolean(directUrl) ||
+		(isTaskRun && args[1] !== "list");
 	const profileConfig = needsBrowserProfile ? extractProfileConfig(args) : {};
 
+	if (args[0] === "--version" || args[0] === "-V" || args[0] === "version") {
+		console.log(`${CLI_NAME} ${CLI_VERSION}`);
+		return;
+	}
 	if (args[0] === "--help" || args[0] === "-h" || args[0] === "help") {
 		printUsage();
 		return;
 	}
+	if (isMcp) {
+		startMcpServer();
+		return;
+	}
+
+	if (await handleSheetsCommand(args)) return;
+	if (await handleDataCommand(args)) return;
+	const workflowExit = await handleWorkflowCommand(args, profileConfig);
+	if (workflowExit !== null) process.exit(workflowExit);
 
 	if (isProfilesList) {
 		const profiles = detectBrowserProfiles();
@@ -45,7 +69,7 @@ async function main() {
 		console.log(
 			"\n" +
 				"═".repeat(67) +
-				"\nUse in any command: \x1b[32mbun src/index.ts <record|flow|task|repl> --profile=<id>\x1b[0m\n",
+				`\nUse in any command: \x1b[32m${CLI_NAME} <record|flow|task|repl> --profile=<id>\x1b[0m\n`,
 		);
 		process.exit(0);
 	}
@@ -102,7 +126,7 @@ async function main() {
 		console.log(
 			"\n" +
 				"═".repeat(67) +
-				"\nRun any task with: \x1b[32mbun src/index.ts task <task-id> [--param=val] [--profile=<id>]\x1b[0m\n",
+				`\nRun any task with: \x1b[32m${CLI_NAME} task <task-id> [--param=val] [--profile=<id>]\x1b[0m\n`,
 		);
 		process.exit(0);
 	}

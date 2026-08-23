@@ -1,4 +1,5 @@
 import { detectBrowserProfiles, prepareProfileLaunch } from "./cdp/index.js";
+import { CLI_NAME } from "./version.js";
 
 export function flagValue(cliArgs: string[], name: string): string | undefined {
 	const index = cliArgs.indexOf(name);
@@ -9,17 +10,22 @@ export function flagValue(cliArgs: string[], name: string): string | undefined {
 
 export function printUsage(): void {
 	console.log(`
-Browser Automation CLI
+Bflow — Browser Workflow Automation
 
-  bun src/index.ts                         Open the interactive wizard
-  bun src/index.ts record [file] [url]     Record a workflow
-  bun src/index.ts flow <file> [--k=v]     Run a workflow
-  bun src/index.ts tasks                   List tasks
-  bun src/index.ts task <id> [--k=v]       Run a task
-  bun src/index.ts profiles                List browser profiles
-  bun src/index.ts repl                    Open the interactive REPL
-  bun src/index.ts cleanup                 Clean managed orphan browsers
-  bun src/index.ts --url <url> [--screenshot <path>]
+  ${CLI_NAME}                              Open the interactive wizard
+  ${CLI_NAME} record [file] [url]          Record a workflow
+  ${CLI_NAME} flow <file> [--k=v]          Run a workflow
+  ${CLI_NAME} workflow run <file> --data=<provider-uri>
+  ${CLI_NAME} sheets <command>             Manage Google Sheets data
+  ${CLI_NAME} data providers               List installed data providers
+  ${CLI_NAME} tasks                        List tasks
+  ${CLI_NAME} task <id> [--k=v]            Run a task
+  ${CLI_NAME} profiles                     List browser profiles
+  ${CLI_NAME} repl                         Open the interactive REPL
+  ${CLI_NAME} mcp                          Serve agent authoring tools over MCP stdio
+  ${CLI_NAME} cleanup                      Clean managed orphan browsers
+  ${CLI_NAME} --url <url> [--screenshot <path>]
+  ${CLI_NAME} --version                    Print the installed version
 `);
 }
 

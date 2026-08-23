@@ -6,6 +6,7 @@ import { startRepl } from "../cli.js";
 import { OUTPUT_DIR } from "../runtime-paths.js";
 import { taskRegistry } from "../tasks/registry.js";
 import { promptProfileSelection } from "./profile-picker.js";
+import { handleGoogleSheetsConnection } from "./wizard-google-sheets.js";
 import { handleViewOutputs } from "./wizard-outputs.js";
 import { handleRecordWorkflow, handleRunWorkflowSelection } from "./wizard-workflow.js";
 import { loadAllWorkflows, type WorkflowFile } from "./workflow-loader.js";
@@ -33,6 +34,11 @@ export async function runInteractiveWizard() {
 					value: "record_workflow",
 					label: "🔴 Record New Workflow",
 					hint: "Launch visual in-browser recorder with HUD",
+				},
+				{
+					value: "connect_google_sheets",
+					label: "🔗 Connect Google Sheets",
+					hint: "Authorize, preview, and attach a sheet to a workflow",
 				},
 				{
 					value: "run_task",
@@ -130,6 +136,10 @@ export async function runInteractiveWizard() {
 
 		if (action === "record_workflow") {
 			await handleRecordWorkflow();
+		}
+
+		if (action === "connect_google_sheets") {
+			await handleGoogleSheetsConnection();
 		}
 
 		if (action === "run_task") {

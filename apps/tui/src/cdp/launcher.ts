@@ -22,28 +22,57 @@ export interface LaunchedChrome {
 	isTempProfile: boolean;
 }
 
-const DEFAULT_CHROME_PATHS = {
-	darwin: [
-		"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-		"/Applications/Chromium.app/Contents/MacOS/Chromium",
-		"/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
-		"/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
-	],
-	linux: [
-		"/usr/bin/google-chrome",
-		"/usr/bin/chromium",
-		"/usr/bin/chromium-browser",
-		"/usr/bin/brave-browser",
-	],
-	win32: [
-		"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-		"C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
-	],
-};
+function compactPaths(paths: Array<string | undefined>): string[] {
+	return [...new Set(paths.filter((path): path is string => Boolean(path)))];
+}
+
+function windowsBrowserPaths(): string[] {
+	const programFiles = process.env.PROGRAMFILES || process.env.ProgramFiles;
+	const programFilesX86 = process.env["PROGRAMFILES(X86)"] || process.env["ProgramFiles(x86)"];
+	const localAppData = process.env.LOCALAPPDATA;
+	const roots = compactPaths([programFiles, programFilesX86, localAppData]);
+	const relativeExecutables = [
+		["Google", "Chrome", "Application", "chrome.exe"],
+		["Microsoft", "Edge", "Application", "msedge.exe"],
+		["BraveSoftware", "Brave-Browser", "Application", "brave.exe"],
+		["Chromium", "Application", "chrome.exe"],
+	];
+
+	return roots.flatMap((root) => relativeExecutables.map((parts) => join(root, ...parts)));
+}
+
+function defaultChromePaths(): Record<"darwin" | "linux" | "win32", string[]> {
+	return {
+		darwin: [
+			"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+			"/Applications/Chromium.app/Contents/MacOS/Chromium",
+			"/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+			"/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+		],
+		linux: [
+			"/usr/bin/google-chrome",
+			"/usr/bin/chromium",
+			"/usr/bin/chromium-browser",
+			"/usr/bin/brave-browser",
+			"/usr/bin/microsoft-edge",
+			"/usr/bin/microsoft-edge-stable",
+			"/opt/google/chrome/google-chrome",
+			"/snap/bin/chromium",
+		],
+		win32: windowsBrowserPaths(),
+	};
+}
 
 export function findSystemChrome(): string {
+	const configuredPath = process.env.CHROME_PATH;
+	if (configuredPath) {
+		if (existsSync(configuredPath)) return configuredPath;
+		throw new Error(`CHROME_PATH does not point to an existing browser: ${configuredPath}`);
+	}
+
 	const platform = process.platform as "darwin" | "linux" | "win32";
-	const paths = DEFAULT_CHROME_PATHS[platform] || DEFAULT_CHROME_PATHS.linux;
+	const browserPaths = defaultChromePaths();
+	const paths = browserPaths[platform] || browserPaths.linux;
 
 	for (const p of paths) {
 		if (existsSync(p)) {
