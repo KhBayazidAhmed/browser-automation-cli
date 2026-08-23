@@ -1,10 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { WORKFLOWS_DIR } from "../src/runtime-paths.js";
 import { loadAllWorkflows } from "../src/tui/workflow-loader.js";
 
 describe("Workflow Loader Suite", () => {
-	const workflowsDir = join(process.cwd(), "workflows");
+	const workflowsDir = WORKFLOWS_DIR;
 	const testWorkflowFile = join(workflowsDir, "temp-test-loader.json");
 	const invalidWorkflowFile = join(workflowsDir, "temp-invalid-loader.json");
 

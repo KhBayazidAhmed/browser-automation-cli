@@ -85,12 +85,12 @@ export async function handleTaskCommand(args: string[], headless = false): Promi
 	const [taskId, ...rawJsonParts] = args;
 	if (!taskId) return;
 
-	let taskArgs: Record<string, any> = {};
+	let taskArgs: Record<string, string | boolean | number> = {};
 
 	if (rawJsonParts.length > 0) {
 		try {
 			taskArgs = JSON.parse(rawJsonParts.join(" "));
-		} catch (err: unknown) {
+		} catch {
 			console.log(
 				`${colors.yellow}Warning: Could not parse task arguments as JSON, passing as empty object.${colors.reset}`,
 			);

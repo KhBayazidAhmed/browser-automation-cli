@@ -1,11 +1,12 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readdirSync } from "node:fs";
 import * as p from "@clack/prompts";
 import { Browser } from "../cdp/browser.js";
 import { detectBrowserProfiles } from "../cdp/profiles.js";
 import { startRepl } from "../cli.js";
+import { OUTPUT_DIR } from "../runtime-paths.js";
 import { taskRegistry } from "../tasks/registry.js";
 import { promptProfileSelection } from "./profile-picker.js";
+import { handleViewOutputs } from "./wizard-outputs.js";
 import { handleRecordWorkflow, handleRunWorkflowSelection } from "./wizard-workflow.js";
 import { loadAllWorkflows, type WorkflowFile } from "./workflow-loader.js";
 
@@ -15,7 +16,7 @@ export async function runInteractiveWizard() {
 
 	while (true) {
 		const workflows = loadAllWorkflows();
-		const outputDir = join(process.cwd(), "output");
+		const outputDir = OUTPUT_DIR;
 		const outputFiles = existsSync(outputDir)
 			? readdirSync(outputDir).filter((f) => !f.startsWith("."))
 			: [];
@@ -145,6 +146,36 @@ export async function runInteractiveWizard() {
 			})) as string | symbol;
 
 			if (p.isCancel(selectedTaskId)) continue;
+			const selectedTask = taskRegistry.get(selectedTaskId);
+			const taskArgs: Record<string, string | boolean | number> = {};
+			let parameterEntryCancelled = false;
+			for (const parameter of selectedTask?.params || []) {
+				const response =
+					typeof parameter.default === "boolean"
+						? await p.confirm({
+								message: parameter.description,
+								initialValue: parameter.default,
+							})
+						: await p.text({
+								message: parameter.description,
+								defaultValue:
+									parameter.default === undefined ? undefined : String(parameter.default),
+								validate: (value) => {
+									if (parameter.required && !value) return `${parameter.name} is required`;
+									if (typeof parameter.default === "number" && !Number.isFinite(Number(value))) {
+										return `${parameter.name} must be a number`;
+									}
+									return undefined;
+								},
+							});
+				if (p.isCancel(response)) {
+					parameterEntryCancelled = true;
+					break;
+				}
+				taskArgs[parameter.name] =
+					typeof parameter.default === "number" ? Number(response) : response;
+			}
+			if (parameterEntryCancelled) continue;
 
 			const profileChoice = await promptProfileSelection("Choose profile for task execution:");
 			if (!profileChoice) continue;
@@ -156,23 +187,18 @@ export async function runInteractiveWizard() {
 
 			if (p.isCancel(isHeaded)) continue;
 
-			const s = p.spinner();
-			s.start(`Running task ${selectedTaskId}...`);
+			p.log.step(`Running task ${selectedTaskId}...`);
 
-			const result = await taskRegistry.runTask(
-				selectedTaskId,
-				{},
-				{
-					headless: !isHeaded,
-					userDataDir: profileChoice.userDataDir,
-					profileDirectory: profileChoice.profileDirectory,
-				},
-			);
+			const result = await taskRegistry.runTask(selectedTaskId, taskArgs, {
+				headless: !isHeaded,
+				userDataDir: profileChoice.userDataDir,
+				profileDirectory: profileChoice.profileDirectory,
+			});
 
 			if (result.success) {
-				s.stop(`Task completed successfully in ${result.durationMs}ms!`);
+				p.log.success(`Task completed successfully in ${result.durationMs}ms!`);
 			} else {
-				s.stop(`Task failed: ${result.error}`);
+				p.log.error(`Task failed: ${result.error}`);
 			}
 		}
 
@@ -196,38 +222,7 @@ export async function runInteractiveWizard() {
 		}
 
 		if (action === "view_outputs") {
-			if (outputFiles.length === 0) {
-				p.log.warn("No output files generated yet. Run a workflow first!");
-				continue;
-			}
-
-			const fileChoices = outputFiles.map((f) => {
-				const stats = statSync(join(outputDir, f));
-				return {
-					value: f,
-					label: f,
-					hint: `${(stats.size / 1024).toFixed(1)} KB - ${new Date(stats.mtime).toLocaleTimeString()}`,
-				};
-			});
-
-			const selectedFile = (await p.select({
-				message: "Select an output file to inspect:",
-				options: fileChoices,
-			})) as string | symbol;
-
-			if (p.isCancel(selectedFile)) continue;
-
-			const fullPath = join(outputDir, selectedFile);
-			if (selectedFile.endsWith(".json")) {
-				try {
-					const content = JSON.parse(readFileSync(fullPath, "utf-8"));
-					p.note(JSON.stringify(content, null, 2), `Content: ${selectedFile}`);
-				} catch {
-					p.log.error(`Could not read ${selectedFile}`);
-				}
-			} else if (selectedFile.endsWith(".png")) {
-				p.log.success(`📸 Image saved at: ${fullPath}`);
-			}
+			await handleViewOutputs(outputDir, outputFiles);
 		}
 	}
 }

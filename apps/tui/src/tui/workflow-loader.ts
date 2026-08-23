@@ -1,6 +1,8 @@
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { FlowDefinition } from "../flow/types.js";
+import { parseFlowDefinition } from "../flow/validate.js";
+import { WORKFLOWS_DIR } from "../runtime-paths.js";
 
 export interface WorkflowFile {
 	filename: string;
@@ -10,8 +12,7 @@ export interface WorkflowFile {
 }
 
 export function loadAllWorkflows(): WorkflowFile[] {
-	const rootDir = process.cwd();
-	const workflowsDir = join(rootDir, "workflows");
+	const workflowsDir = WORKFLOWS_DIR;
 
 	if (!existsSync(workflowsDir)) {
 		return [];
@@ -23,8 +24,8 @@ export function loadAllWorkflows(): WorkflowFile[] {
 	for (const filename of files) {
 		const fullPath = join(workflowsDir, filename);
 		try {
-			const content = require(fullPath);
-			if (content && content.name && Array.isArray(content.steps)) {
+			const content = parseFlowDefinition(JSON.parse(readFileSync(fullPath, "utf-8")));
+			if (content) {
 				loaded.push({
 					filename,
 					path: fullPath,

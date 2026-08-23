@@ -1,7 +1,8 @@
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import * as p from "@clack/prompts";
 import { FlowRecorder } from "../flow/recorder.js";
 import { FlowRunner } from "../flow/runner.js";
+import { WORKFLOWS_DIR } from "../runtime-paths.js";
 import { promptProfileSelection } from "./profile-picker.js";
 import type { WorkflowFile } from "./workflow-loader.js";
 
@@ -27,8 +28,9 @@ export async function handleRecordWorkflow() {
 	const profileConfig = await promptProfileSelection("Choose profile for recording session:");
 	if (!profileConfig) return;
 
-	const finalFilename = filename.endsWith(".json") ? filename : `${filename}.json`;
-	const outputPath = join(process.cwd(), "workflows", finalFilename);
+	const safeFilename = basename(filename);
+	const finalFilename = safeFilename.endsWith(".json") ? safeFilename : `${safeFilename}.json`;
+	const outputPath = join(WORKFLOWS_DIR, finalFilename);
 
 	p.log.info("🔴 Launching Chrome with In-Page Recorder HUD...");
 	p.log.step(
@@ -106,8 +108,7 @@ export async function handleRunWorkflowSelection(selectedWf: WorkflowFile) {
 		if (!runAfterInspect || p.isCancel(runAfterInspect)) return;
 	}
 
-	const s = p.spinner();
-	s.start(`Executing workflow: ${selectedWf.flow.name}...`);
+	p.log.step(`Executing workflow: ${selectedWf.flow.name}...`);
 
 	const result = await FlowRunner.run(
 		selectedWf.flow,
@@ -120,7 +121,7 @@ export async function handleRunWorkflowSelection(selectedWf: WorkflowFile) {
 	);
 
 	if (result.success) {
-		s.stop(`Completed in ${result.totalDurationMs}ms!`);
+		p.log.success(`Completed in ${result.totalDurationMs}ms!`);
 
 		const dataKeys = Object.keys(result.data);
 		if (dataKeys.length > 0) {
@@ -137,6 +138,6 @@ export async function handleRunWorkflowSelection(selectedWf: WorkflowFile) {
 			p.note(previewText, "📊 Extracted Data Summary");
 		}
 	} else {
-		s.stop(`Execution failed: ${result.error}`);
+		p.log.error(`Execution failed: ${result.error}`);
 	}
 }

@@ -39,6 +39,12 @@ export async function startRepl(
 		output: process.stdout,
 		prompt: `${colors.bold}${colors.magenta}cdp>${colors.reset} `,
 	});
+	let resolveCompletion: (() => void) | undefined;
+	const completion = new Promise<void>((resolve) => {
+		resolveCompletion = resolve;
+	});
+	let isClosing = false;
+	let isExecuting = false;
 
 	const updatePrompt = () => {
 		const label = activeFrame ? ` [frame:${activeFrame.name || activeFrame.id.slice(-6)}]` : "";
@@ -53,6 +59,9 @@ export async function startRepl(
 			rl.prompt();
 			return;
 		}
+		if (isExecuting) return;
+		isExecuting = true;
+		rl.pause();
 		const [cmd, ...args] = trimmed.split(" ");
 		const argStr = args.join(" ");
 
@@ -191,7 +200,7 @@ export async function startRepl(
 					break;
 				}
 				case "block": {
-					const types: any[] = [];
+					const types: string[] = [];
 					if (argStr.includes("image") || argStr.includes("img")) types.push("image");
 					if (argStr.includes("css") || argStr.includes("style")) types.push("stylesheet");
 					if (argStr.includes("font")) types.push("font");
@@ -209,9 +218,8 @@ export async function startRepl(
 				}
 				case "exit":
 				case "quit":
-					await browser.close();
-					process.exit(0);
-					break;
+					rl.close();
+					return;
 				default:
 					console.log(`${colors.red}Unknown command: "${cmd}". Type "help".${colors.reset}`);
 					break;
@@ -220,12 +228,21 @@ export async function startRepl(
 			console.log(
 				`${colors.red}Error: ${err instanceof Error ? err.message : String(err)}${colors.reset}`,
 			);
+		} finally {
+			isExecuting = false;
+			if (!isClosing) {
+				rl.resume();
+				rl.prompt();
+			}
 		}
-		rl.prompt();
 	});
 
 	rl.on("close", async () => {
+		if (isClosing) return;
+		isClosing = true;
 		await browser.close();
-		process.exit(0);
+		resolveCompletion?.();
 	});
+
+	await completion;
 }

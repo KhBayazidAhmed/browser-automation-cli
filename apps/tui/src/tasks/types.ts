@@ -23,7 +23,7 @@ export interface TaskParameter {
 	default?: string | boolean | number;
 }
 
-export interface TaskDefinition<TOutput = any> {
+export interface TaskDefinition<TOutput = unknown> {
 	id: string;
 	name: string;
 	description: string;
@@ -31,7 +31,7 @@ export interface TaskDefinition<TOutput = any> {
 	run: (ctx: TaskContext) => Promise<TOutput>;
 }
 
-export interface TaskExecutionResult<TOutput = any> {
+export interface TaskExecutionResult<TOutput = unknown> {
 	taskId: string;
 	success: boolean;
 	durationMs: number;

@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
 import { Browser } from "../cdp/browser.js";
+import { OUTPUT_DIR } from "../runtime-paths.js";
 import { formAutomationTask } from "./builtin/form-automation.js";
 import { scrapeHnTask } from "./builtin/scrape-hn.js";
 import { siteAuditTask } from "./builtin/site-audit.js";
@@ -57,8 +57,40 @@ export class TaskRegistry {
 				`Task "${taskId}" not found. Available tasks: ${Array.from(this.tasks.keys()).join(", ")}`,
 			);
 		}
+		const resolvedArgs: Record<string, string | boolean | number> = {};
+		for (const parameter of task.params || []) {
+			if (parameter.default !== undefined) resolvedArgs[parameter.name] = parameter.default;
+		}
+		Object.assign(resolvedArgs, args);
+		for (const parameter of task.params || []) {
+			const value = resolvedArgs[parameter.name];
+			if (parameter.required && (value === undefined || value === "")) {
+				return {
+					taskId,
+					success: false,
+					durationMs: 0,
+					error: `Missing required parameter "${parameter.name}"`,
+				};
+			}
+			if (typeof parameter.default === "number" && typeof value !== "number") {
+				return {
+					taskId,
+					success: false,
+					durationMs: 0,
+					error: `Parameter "${parameter.name}" must be a number`,
+				};
+			}
+			if (typeof parameter.default === "boolean" && typeof value !== "boolean") {
+				return {
+					taskId,
+					success: false,
+					durationMs: 0,
+					error: `Parameter "${parameter.name}" must be true or false`,
+				};
+			}
+		}
 
-		const outputDir = join(process.cwd(), "output");
+		const outputDir = OUTPUT_DIR;
 		if (!existsSync(outputDir)) {
 			mkdirSync(outputDir, { recursive: true });
 		}
@@ -95,7 +127,7 @@ export class TaskRegistry {
 			const data = await task.run({
 				browser,
 				page,
-				args,
+				args: resolvedArgs,
 				log,
 				outputDir,
 			});

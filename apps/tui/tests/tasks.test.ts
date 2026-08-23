@@ -40,9 +40,14 @@ describe("Programmatic Tasks & Task Registry Suite", () => {
 
 		expect(result.success).toBe(true);
 		expect(result.data).toBeDefined();
-		expect(result.data.content.title).toBe("CDP Test Server");
-		expect(result.data.performance.domNodes).toBeGreaterThanOrEqual(0);
-		expect(result.data.screenshot).toContain(".png");
+		const data = result.data as {
+			content: { title: string };
+			performance: { domNodes: number };
+			screenshot: string;
+		};
+		expect(data.content.title).toBe("CDP Test Server");
+		expect(data.performance.domNodes).toBeGreaterThanOrEqual(0);
+		expect(data.screenshot).toContain(".png");
 		expect(result.durationMs).toBeGreaterThan(0);
 	}, 15000);
 
@@ -58,9 +63,14 @@ describe("Programmatic Tasks & Task Registry Suite", () => {
 
 		expect(result.success).toBe(true);
 		expect(result.data).toBeDefined();
-		expect(result.data.submittedEmail).toBe("alice@automated.io");
-		expect(result.data.submittedName).toBe("Alice Engineer");
-		expect(result.data.resultText).toContain("Registration Successful for: Alice Engineer");
+		const data = result.data as {
+			submittedEmail: string;
+			submittedName: string;
+			resultText: string;
+		};
+		expect(data.submittedEmail).toBe("alice@automated.io");
+		expect(data.submittedName).toBe("Alice Engineer");
+		expect(data.resultText).toContain("Registration Successful for: Alice Engineer");
 	}, 15000);
 
 	test("4. handles unknown task IDs gracefully with clear error", async () => {
