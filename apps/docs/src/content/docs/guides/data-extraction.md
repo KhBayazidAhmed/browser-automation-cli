@@ -5,7 +5,7 @@ description: Extract single text fields, attributes, and repeating card/table gr
 
 # 📊 Smart Data & List Extraction
 
-**Browser Automation CLI** makes scraping web data visual and effortless. Whether you want to grab a single product title, capture an image URL, or scrape 100 rows from a paginated table, you can do it with point-and-click ease.
+**Bflow** makes scraping web data visual and effortless. Whether you want to grab a single product title, capture an image URL, or scrape 100 rows from a paginated table, you can do it with point-and-click ease.
 
 ---
 
@@ -38,7 +38,7 @@ To extract a single element's value:
 
 ## 📈 Smart List & Repeating Grid Extraction
 
-Extracting entire catalogs, product lists, or data tables is traditionally tedious. With Browser Automation CLI's **Smart Pattern Detector**, you only need to select **one** card or row.
+Extracting entire catalogs, product lists, or data tables is traditionally tedious. With Bflow's **Smart Pattern Detector**, you only need to select **one** card or row.
 
 ### How It Works
 

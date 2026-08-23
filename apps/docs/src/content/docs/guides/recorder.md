@@ -24,10 +24,12 @@ Or choose **🔴 Record New Workflow** from the [Interactive Studio](/guides/int
 When Chrome opens, a floating toolbar appears at the top of the browser window:
 
 ```text
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│ ⠿ | 🔴 REC (4) | ⏸️ Pause | 🔍 Extract | 📊 List | 🔎 Assert | ⏱️ Wait | 📷 Shot | ⚙️ Config (4) | ↩ Undo | 🛑 Finish │
-└────────────────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│ ⠿  REC 4  Pause  Add step ▾  Capture ▾  Config 4  Undo  Finish  ◀ │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
+
+The compact toolbar groups less frequent controls into **Add step** and **Capture** menus. Only one menu stays open at a time; click outside or press `Escape` to close it. The status badge can also be focused and activated with `Enter` or `Space` to pause/resume recording.
 
 ### HUD Controls & Actions
 
@@ -35,12 +37,13 @@ When Chrome opens, a floating toolbar appears at the top of the browser window:
 | :--- | :--- | :--- |
 | **Normal Click** | Left Click on any element | Records a resilient click step using human-visible text, aria labels, or role selectors. |
 | **Input / Type** | Type into any input or textarea | Automatically records typing with placeholder and label association. |
-| **🔍 Extract Text** | `Shift + Click` or click HUD button | Prompts for a variable name and extracts the element's text into that variable. |
-| **📊 Extract List** | Click HUD button & select 1 element | Automatically detects repeating sibling cards/table rows and extracts all rows into structured JSON. |
-| **🔎 Assert Text** | `Alt + Click` or click HUD button | Opens a prompt to add a text assertion (Strict Equal, Contains Substring, or Regex). |
-| **⏱️ Add Wait** | Click HUD button | Adds a custom delay (in milliseconds) or waits for a selector to appear. |
-| **📷 Screenshot** | Click HUD button | Captures a viewport or full-page screenshot at that step. |
-| **⚙️ Config Drawer** | Click HUD button | Opens an in-page slide-out drawer showing live JSON, recorded steps, and variables. |
+| **Add step ▾ → Extract value** | `Shift + Click` or use the menu | Prompts for a variable name and extracts the element's text into that variable. |
+| **Add step ▾ → Extract list** | Select one repeated element | Detects sibling cards/table rows and extracts all rows into structured JSON. |
+| **Add step ▾ → Assert element** | `Alt + Click` or use the menu | Adds a strict, contains, or regex assertion. |
+| **Add step ▾ → Wait** | Open the Insert step panel | Adds a delay or a selector/text wait. Use **Target** to pick an element from the page, including a same-session frame, and `Escape` to cancel targeting. |
+| **Capture ▾ → Screenshot** | Select the menu item | Adds a viewport or full-page screenshot step. |
+| **Capture ▾ → Virtual camera** | Select the menu item | Configures a local video, remote stream, or generated test feed. |
+| **Config Drawer** | Click the sliders icon | Opens the Steps, Variables, JSON, and Insert step tabs. |
 | **⏸️ Pause / Resume** | Click HUD button | Temporarily pauses recording so you can solve CAPTCHAs, 2FA, or log in without recording junk steps. |
 | **↩ Undo Step** | Click HUD button | Removes the last recorded step. |
 | **🛑 Finish & Save** | Click HUD button | Saves the workflow to your JSON file and cleanly exits Chrome. |
@@ -50,10 +53,12 @@ When Chrome opens, a floating toolbar appears at the top of the browser window:
 ## ⚙️ Live In-Page Config Drawer
 
 Clicking **⚙️ Config** opens a live slide-out drawer inside Chrome where you can:
+
 - View the complete JSON workflow definition as it builds.
 - Delete individual steps with a single click.
 - Reorder steps.
 - Inspect and manage extracted variables.
+- Insert wait, wait-for-element, navigation, and JavaScript evaluation steps.
 
 ---
 

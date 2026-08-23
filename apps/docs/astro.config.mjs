@@ -6,9 +6,10 @@ import starlightThemeRapide from "starlight-theme-rapide";
 
 // https://astro.build/config
 export default defineConfig({
+	site: "https://browser-automation-cli.bixbd.com",
 	integrations: [
 		starlight({
-			title: "Browser Automation CLI",
+			title: "Bflow",
 			description:
 				"Browser Automation for Humans — Ultra-lightweight, zero-bloat CLI and visual recording studio powered by direct Chrome DevTools Protocol and Bun.",
 			plugins: [starlightThemeRapide()],
@@ -50,6 +51,11 @@ export default defineConfig({
 						},
 						{ label: "Live Config Inspector Drawer", slug: "guides/config-drawer" },
 						{ label: "Workflow Execution & Replay", slug: "guides/workflows" },
+						{
+							label: "Agent-Assisted Authoring",
+							slug: "guides/agent-authoring",
+							badge: { text: "New", variant: "note" },
+						},
 						{ label: "Interactive Browser REPL", slug: "guides/repl" },
 						{ label: "Built-in Programmatic Tasks", slug: "guides/tasks" },
 					],
@@ -59,6 +65,24 @@ export default defineConfig({
 					items: [
 						{ label: "Human-Centric Text Locators", slug: "deep-dive/locators" },
 						{ label: "Performance & Resource Blocking", slug: "deep-dive/performance" },
+					],
+				},
+				{
+					label: "External Data",
+					items: [
+						{
+							label: "Overview",
+							slug: "data/overview",
+							badge: { text: "New", variant: "note" },
+						},
+						{ label: "Providers", slug: "data/providers" },
+						{ label: "Google Sheets", slug: "data/google-sheets" },
+						{ label: "Variables", slug: "data/variables" },
+						{ label: "Transformations", slug: "data/transformations" },
+						{ label: "Row Execution", slug: "data/row-execution" },
+						{ label: "Result Write-back", slug: "data/result-writeback" },
+						{ label: "Retry and Resume", slug: "data/retries" },
+						{ label: "Troubleshooting", slug: "data/troubleshooting" },
 					],
 				},
 				{

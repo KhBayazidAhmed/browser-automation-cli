@@ -5,7 +5,7 @@ description: Manage orphan Chrome processes, troubleshoot connection issues, and
 
 # 🧹 Process Cleanup & Troubleshooting
 
-Browser Automation CLI is engineered with robust lifecycle management. However, unexpected system crashes or forced terminal terminations (`Ctrl + C`) can occasionally leave headless Chrome processes running in the background.
+Bflow is engineered with robust lifecycle management. However, unexpected system crashes or forced terminal terminations (`Ctrl + C`) can occasionally leave headless Chrome processes running in the background.
 
 Here is how to resolve common operational issues.
 

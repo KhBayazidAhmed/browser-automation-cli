@@ -5,7 +5,7 @@ description: Deep dive into the resilient text locator engine and pseudo-selecto
 
 # 🎯 Human-Centric Text & Selector Engine
 
-Dynamic CSS classes (like `css-175oi2r` or `btn_x8z9_2`) break constantly when websites deploy UI updates. **Browser Automation CLI** is built around **Human-Centric Text Locators**, prioritizing how users and accessibility trees perceive elements.
+Dynamic CSS classes (like `css-175oi2r` or `btn_x8z9_2`) break constantly when websites deploy UI updates. **Bflow** is built around **Human-Centric Text Locators**, prioritizing how users and accessibility trees perceive elements.
 
 ---
 

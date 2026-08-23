@@ -7,7 +7,7 @@ description: Maximize scraping speed and reduce network bandwidth by blocking he
 
 Scraping data or running headless end-to-end tests often wastes time and bandwidth loading megabytes of heavy media files, custom fonts, video streams, and tracking scripts.
 
-**Browser Automation CLI** lets you block these resources directly at the network layer via Chrome DevTools Protocol.
+**Bflow** lets you block these resources directly at the network layer via Chrome DevTools Protocol.
 
 ---
 

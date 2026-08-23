@@ -7,7 +7,7 @@ description: Inject synthetic test patterns, local video files, and remote video
 
 Automating websites that require webcam access (such as video conferencing, KYC identity verification, avatar onboarding, and WebRTC applications) is notoriously difficult in traditional automation setups.
 
-**Browser Automation CLI** includes a built-in **CDP Virtual Webcam & MediaStream Injection Engine** that intercepts `navigator.mediaDevices.getUserMedia` and `navigator.mediaDevices.enumerateDevices` to feed custom video streams directly to the webpage.
+**Bflow** includes a built-in **CDP Virtual Webcam & MediaStream Injection Engine** that intercepts `navigator.mediaDevices.getUserMedia` and `navigator.mediaDevices.enumerateDevices` to feed custom video streams directly to the webpage.
 
 ---
 

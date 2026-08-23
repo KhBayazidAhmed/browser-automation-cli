@@ -5,7 +5,7 @@ description: Full reference for declarative JSON workflow structure, step action
 
 # 📄 Workflow JSON Schema Reference
 
-Every recorded or custom workflow in Browser Automation CLI is defined as a JSON object adhering to the schema below.
+Every recorded or custom workflow in Bflow is defined as a JSON object adhering to the schema below.
 
 ## 🧱 Top-Level Structure
 
@@ -20,11 +20,37 @@ Every recorded or custom workflow in Browser Automation CLI is defined as a JSON
     "searchQuery": "Bun runtime",
     "itemLimit": 10
   },
-  "steps": [
-    // Array of Step Objects
-  ]
+  "data": {
+    "source": "users",
+    "results": {
+      "confirmation": "data.confirmationText"
+    },
+    "sensitiveColumns": ["password"]
+  },
+  "dataSources": {
+    "users": {
+      "provider": "google-sheets",
+      "uri": "google-sheets://SPREADSHEET_ID/Users?range=A:E"
+    }
+  },
+  "steps": []
 }
 ```
+
+`data` and `dataSources` are optional. When present, `bun workflow run` streams rows from the logical source and makes fields available through `{{row.column}}`. Provider details never appear in individual workflow steps.
+
+| Field | Required | Description |
+| :--- | :--- | :--- |
+| `name` | Yes | Human-readable workflow name. |
+| `steps` | Yes | Ordered array of deterministic step objects. |
+| `description`, `version` | No | Workflow metadata; `name` plus `version` also identifies resumable row state. |
+| `headless` | No | Default browser visibility for normal replay. CLI flags can override it. |
+| `blockMedia` | No | Enable the workflow's media-blocking behavior. |
+| `variables` | No | Workflow-level interpolation defaults. |
+| `data.source` | With configured data | Logical key selected from `dataSources`. |
+| `data.results` | No | Maps destination columns to paths in each `FlowExecutionResult`. |
+| `data.sensitiveColumns` | No | Additional row columns whose values must be redacted. |
+| `dataSources` | No | Named provider configurations with `provider`, `uri`, optional `account`, and provider `options`. |
 
 ---
 
@@ -35,10 +61,12 @@ Every recorded or custom workflow in Browser Automation CLI is defined as a JSON
 {
   "action": "goto",
   "url": "https://example.com",
-  "waitUntil": "domcontentloaded", // "load" | "domcontentloaded"
+  "waitUntil": "domcontentloaded",
   "timeout": 30000
 }
 ```
+
+`waitUntil` accepts `load`, `domcontentloaded`, or `networkidle`.
 
 ---
 
@@ -47,12 +75,12 @@ Locates and clicks an element via CSS selector or strict human text.
 ```json
 {
   "action": "click",
-  "selector": "button.submit", // or text locator
-  "text": "Sign In",           // Optional: text matching
-  "strictText": true,          // Exact case-sensitive match
+  "selector": "button.submit",
   "timeout": 5000
 }
 ```
+
+Instead of `selector`, use a text matcher such as `"text": "Sign In"` with `"strictText": true`.
 
 ---
 
@@ -61,8 +89,8 @@ Locates and clicks an element via CSS selector or strict human text.
 {
   "action": "type",
   "selector": "input[name='username']",
-  "text": "{{userEmail}}",     // Supports variable substitution
-  "clearFirst": true,          // Clear existing text before typing
+  "text": "{{userEmail}}",
+  "clearFirst": true,
   "timeout": 5000
 }
 ```
@@ -76,10 +104,12 @@ Extracts text or attribute from an element into a workflow variable.
   "action": "extract",
   "selector": "h1.title",
   "as": "pageTitle",
-  "attribute": "text",         // "text" | "innerText" | "href" | "src" | "value"
+  "attribute": "text",
   "all": false
 }
 ```
+
+Use an attribute name such as `href`, `src`, or `value`; `text`/`innerText` extract visible content. Set `all` to return every match.
 
 ---
 
@@ -107,26 +137,29 @@ Verifies that text or attribute conditions match expectations.
 {
   "action": "assert",
   "selector": ".status-message",
-  "text": "Welcome back",
-  "contains": "Welcome",       // Substring check
-  "equals": "Welcome back!",   // Exact equality check
-  "matches": "^Welcome.*!$",   // Regex check
+  "contains": "Welcome",
   "ignoreCase": true,
   "timeout": 5000
 }
 ```
 
+Choose an assertion condition such as `text`, `strictText`, `equals`, `contains`, `startsWith`, `endsWith`, or regex `matches`. Set `attribute` when the assertion should inspect an element attribute instead of its text.
+
 ---
 
 ### 7. `wait` / `waitForSelector` — Timing & Delays
+Fixed duration:
+
 ```json
-// Fixed duration wait
 {
   "action": "wait",
   "durationMs": 2000
 }
+```
 
-// Wait for an element to appear in the DOM
+Wait for a selector or text matcher:
+
+```json
 {
   "action": "waitForSelector",
   "selector": "#dashboard-loaded",
@@ -141,9 +174,12 @@ Verifies that text or attribute conditions match expectations.
 {
   "action": "screenshot",
   "path": "output/dashboard.png",
+  "selector": "#dashboard",
   "fullPage": true
 }
 ```
+
+When `selector` is present, only that element is captured and `fullPage` is ignored.
 
 ---
 
@@ -186,15 +222,17 @@ Write all extracted variables and multiple extractions to disk as JSON or CSV.
 {
   "action": "save",
   "path": "output/results.json",
-  "format": "json" // "json" | "csv"
+  "format": "json"
 }
 ```
+
+`format` accepts `json` or `csv`.
 
 ---
 
 ## 🎯 Human-Centric Locator Attributes
 
-All element interactions (`click`, `type`, `extract`, `assert`) support human-centric matching properties:
+Element targeting steps (`click`, `type`, `waitForSelector`, `extract`, and `assert`) support human-centric matching properties. Applicable fields vary slightly by action:
 
 | Property | Type | Description |
 | :--- | :--- | :--- |
@@ -205,3 +243,28 @@ All element interactions (`click`, `type`, `extract`, `assert`) support human-ce
 | `startsWith` | String | Match elements starting with prefix. |
 | `endsWith` | String | Match elements ending with suffix. |
 | `normalizeWhitespace` | Boolean | Collapses multiple spaces and newlines (default `true`). |
+
+Use `frame` on a step to target a matching child frame. A step can also declare a `variables` object for low-precedence, step-local defaults.
+
+## 🔄 Variable Interpolation
+
+Strings can reference workflow values, CLI overrides, extracted values, row columns, nested paths, and environment variables:
+
+```json
+{
+  "action": "type",
+  "selector": "#email",
+  "text": "{{row.contact.email | trim | lowercase}}",
+  "variables": {
+    "fallbackDomain": "example.com"
+  }
+}
+```
+
+Use `{{env.ACCOUNT_PASSWORD}}` for secrets. Supported transformations are `trim`, `lowercase`, `uppercase`, `replace`, `default`, `split`, `join`, `uuid`, `random`, `date`, `formatDate`, `json`, and `urlEncode`. Transformations are evaluated left-to-right.
+
+Variable precedence from highest to lowest is system, CLI, workflow, row, then step-local values.
+
+## 🔐 Data-Driven Artifact Safety
+
+During row execution, columns detected as sensitive—or named in `data.sensitiveColumns`—are redacted from errors, summaries, saved JSON/CSV data, screenshots, and PDFs. Screenshot/PDF masking is temporary and restored immediately after capture. Sensitive workflow inputs should remain environment references rather than literal workflow variables.

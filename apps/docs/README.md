@@ -1,6 +1,25 @@
-# Browser Automation CLI Documentation Site
+# Bflow Documentation Site
 
-Documentation site for **Browser Automation CLI**, built with [Astro](https://astro.build) and [Starlight](https://starlight.astro.build).
+Documentation site for **Bflow**, built with [Astro](https://astro.build) and [Starlight](https://starlight.astro.build).
+
+## Cloudflare Pages
+
+The Pages project is named `browser-automation-cli` and deploys to `https://browser-automation-cli.bixbd.com`.
+
+Authenticate once and create the Direct Upload project:
+
+```bash
+bunx wrangler login
+bun run docs:pages:create
+```
+
+Deploy the production docs and public installers:
+
+```bash
+bun run docs:deploy
+```
+
+After the first deployment, add `browser-automation-cli.bixbd.com` under the Pages project's **Custom domains** settings in the Cloudflare dashboard.
 
 ## 🚀 Running the Documentation Locally
 

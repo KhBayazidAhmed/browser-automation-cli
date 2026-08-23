@@ -25,9 +25,11 @@ Click the **⚙️ Config (N)** button on the floating HUD toolbar (where `N` re
 ---
 
 ### 2. Manual Step Inserters
+
 Need to add a custom action without performing it on the page? Use the quick insertion forms:
+
 - **Add Wait**: Specify a duration in milliseconds (e.g. `2000` for 2s delay).
-- **Add WaitForSelector**: Wait for a specific CSS element or text to appear before continuing.
+- **Add WaitForSelector**: Wait for a CSS element or text before continuing. Click **Target** to close the drawer temporarily and select the element directly; press `Escape` to cancel targeting.
 - **Add Navigation (`goto`)**: Force navigate to a URL.
 - **Add Eval**: Execute custom JavaScript snippet and save its return value into a variable.
 
@@ -41,8 +43,14 @@ Need to add a custom action without performing it on the page? Use the quick ins
 ---
 
 ### 4. Real-time JSON Code Viewer
+
 - Inspect the formatted JSON representation of your workflow as it is being built.
+- Copy the current workflow JSON to the clipboard.
 - Useful for validating selector syntax and step configurations before finalizing.
+
+### 5. Keyboard and screen-reader behavior
+
+The drawer is exposed as a modal dialog with named tabs and tab panels. Opening it moves focus to the close control, closing it returns focus to Config, and `Escape` closes the drawer. Toolbar controls include accessible labels and the recorder badge supports `Enter`/`Space` activation.
 
 ---
 

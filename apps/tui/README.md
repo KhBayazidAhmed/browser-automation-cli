@@ -1,4 +1,4 @@
-# Direct CDP Browser Automation CLI
+# Bflow — Direct CDP Browser Workflow Automation
 
 A Bun CLI, guided terminal wizard, and visual recorder built directly on Chrome DevTools Protocol (CDP). It supports text-aware locators, frames, declarative JSON workflows, extraction, screenshots, PDFs, browser profiles, and programmatic tasks.
 

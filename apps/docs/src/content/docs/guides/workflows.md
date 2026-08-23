@@ -5,7 +5,7 @@ description: Execute, replay, and customize declarative JSON workflows.
 
 # 🌊 Workflow Execution
 
-Workflows in Browser Automation CLI are declarative, version-controllable JSON files. You can execute them headless in CI/CD pipelines or headed on your local desktop.
+Workflows in Bflow are declarative, version-controllable JSON files. You can execute them headless in CI/CD pipelines or headed on your local desktop.
 
 ## 🚀 Running a Workflow
 
@@ -52,6 +52,30 @@ Inside your workflow JSON, use `{{variableName}}` syntax:
   ]
 }
 ```
+
+Nested paths and transformation pipelines are also supported:
+
+```json
+{
+  "action": "type",
+  "selector": "#email",
+  "text": "{{row.contact.email | trim | lowercase}}"
+}
+```
+
+Use `{{env.SECRET_NAME}}` for secrets. Missing environment references fail instead of being typed literally. Variable precedence from highest to lowest is system values, CLI overrides, workflow variables, row values, and step-local `variables`.
+
+## 🧾 Running Once Per External Row
+
+Use the data-aware command when every provider row should receive an isolated browser run:
+
+```bash
+bun workflow run workflows/signup.json \
+  --data='google-sheets://SPREADSHEET_ID/Users?range=A:E' \
+  --dry-run
+```
+
+After reviewing the dry-run summary, remove `--dry-run`. Data runs can filter rows, use bounded parallel workers, retry transient failures, resume checkpoints, and write status/results back without changing source cells. See [External Data](/data/overview/) for the full workflow structure.
 
 ---
 
@@ -117,3 +141,5 @@ When a workflow runs, the CLI logs a step-by-step progress report with execution
 
 ✨ Flow completed successfully in 465ms!
 ```
+
+Normal workflow results, screenshots, PDFs, and saved extracts are written beneath `output/` relative to the current working directory. Data-driven runs suppress per-row result files and write one `workflow-<run-id>-summary.json` plus a resumable workflow state file.

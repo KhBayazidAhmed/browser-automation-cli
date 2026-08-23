@@ -1,5 +1,5 @@
 ---
-title: Browser Automation CLI
+title: Bflow
 description: Ultra-lightweight, zero-bloat browser automation and visual recording studio powered by Chrome DevTools Protocol (CDP) and Bun.
 template: splash
 hero:
@@ -24,10 +24,10 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 
 <CardGrid stagger>
 	<Card title="Interactive Studio Wizard" icon="laptop">
-		Launch `bun cli` or `bun dev` to access the terminal wizard. Run flows, record new sessions, execute scrapers, inspect output files, or drop into a live REPL with intuitive arrow keys.
+		Launch `bun cli` to access the terminal wizard. Run flows, record new sessions, execute scrapers, inspect output files, or drop into a live REPL with intuitive arrow keys.
 	</Card>
 	<Card title="Live In-Browser Recorder & HUD" icon="star">
-		Record interactions directly in Google Chrome with a floating HUD toolbar. Clicks, inputs, list extractions, and assertions are recorded live into clean JSON.
+		Record interactions directly in Chrome with a compact, keyboard-friendly HUD. Grouped step/capture menus, a target picker, and a live drawer turn interactions into clean JSON.
 	</Card>
 	<Card title="Human-Centric Strict Locators" icon="puzzle">
 		Target elements directly by visible text (`text="Sign In"`), case-insensitive matching (`text/i="..."`), `:text-is()`, placeholder, or ARIA labels instead of fragile CSS classes.
@@ -43,6 +43,18 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 	</Card>
 	<Card title="Declarative JSON Replay & CI" icon="rocket">
 		Replay recorded workflows in headless mode for CI/CD or headed on desktop, with dynamic variable overrides (`--query="Bun"`) and assertions.
+	</Card>
+	<Card title="Agent-Assisted Authoring" icon="puzzle">
+		Connect Codex, Claude, or another MCP host to observe, act, verify, and publish a workflow. The resulting JSON replays later without an agent or model API key.
+	</Card>
+	<Card title="External Data & Google Sheets" icon="table">
+		Execute one isolated workflow per row with nested variables, local transformations, filtering, bounded parallelism, retries, resume, and sparse result write-back.
+	</Card>
+	<Card title="Sensitive-Data Protection" icon="lock">
+		Keep secrets in environment variables and redact sensitive row values from errors, summaries, saved results, screenshots, and PDFs.
+	</Card>
+	<Card title="Standalone Cross-Platform CLI" icon="download">
+		Install checksum-verified release binaries for macOS, Linux, or Windows without Node.js or Bun, while keeping workflows and output relative to your project directory.
 	</Card>
 	<Card title="Interactive Browser REPL" icon="pencil">
 		Inspect live pages, test CDP commands, execute JavaScript expressions, block heavy network resources, and capture screenshots in real time.

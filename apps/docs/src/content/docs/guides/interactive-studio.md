@@ -1,21 +1,21 @@
 ---
 title: Interactive Studio (The Easy Way)
-description: Master the guided terminal wizard for Browser Automation CLI.
+description: Master the guided terminal wizard for Bflow.
 ---
 
 # ⚡ Interactive Studio — The Easy Way
 
-The **Interactive Studio** is the most intuitive and beginner-friendly way to use Browser Automation CLI. You don't need to memorize complex CLI arguments or flags — simply run a single command and navigate with your arrow keys.
+The **Interactive Studio** is the most intuitive and beginner-friendly way to use Bflow. You don't need to memorize complex CLI arguments or flags — simply run a single command and navigate with your arrow keys.
 
 ## 🚀 Launching the Studio
 
-Run either command from your terminal:
+Run the CLI workspace command from the repository root:
 
 ```bash
-bun dev
-# or
 bun cli
 ```
+
+`bun dev` starts every development workspace, including the documentation site, and is not an alias for the studio.
 
 ---
 

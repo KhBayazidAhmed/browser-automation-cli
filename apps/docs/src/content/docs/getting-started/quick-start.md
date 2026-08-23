@@ -1,11 +1,11 @@
 ---
 title: Quick Start
-description: Get up and running with Browser Automation CLI in under 2 minutes.
+description: Get up and running with Bflow in under 2 minutes.
 ---
 
 # 🚀 Quick Start
 
-Get started with Browser Automation CLI in two minutes.
+Get started with Bflow in two minutes.
 
 ## 📋 Prerequisites
 
@@ -32,10 +32,10 @@ bun install
 The simplest and most user-friendly way to use the CLI is the **Interactive Terminal Studio**:
 
 ```bash
-bun dev
-# or
 bun cli
 ```
+
+`bun dev` starts every development workspace in the monorepo. Use `bun cli` when you only want the automation studio.
 
 You will see an interactive prompt:
 
@@ -107,4 +107,6 @@ cdp> exit
 
 - Explore the [Interactive Studio Guide](/guides/interactive-studio/) for all interactive menu features.
 - Learn about the [Visual Live Recorder](/guides/recorder/) HUD controls and shortcuts.
+- Connect [Codex or Claude for agent-assisted authoring](/guides/agent-authoring/), then replay the published workflow without the agent.
+- Drive a workflow from [Google Sheets or another external provider](/data/overview/).
 - Check the [CLI Command Reference](/reference/cli-commands/) for direct CLI flags and command options.

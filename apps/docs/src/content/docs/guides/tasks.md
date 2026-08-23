@@ -5,7 +5,7 @@ description: Run ready-to-use automation tasks for scraping, auditing, and form 
 
 # 🚀 Built-in Automation Tasks
 
-Browser Automation CLI includes pre-built programmatic tasks for common browser workflows. You can execute them directly without writing JSON flows or scripts.
+Bflow includes pre-built programmatic tasks for common browser workflows. You can execute them directly without writing JSON flows or scripts.
 
 ## 📋 Listing Available Tasks
 
@@ -63,6 +63,6 @@ bun task form-automation --headed
 
 You can also run any built-in task via the [Interactive Studio](/guides/interactive-studio/):
 
-1. Launch `bun cli` or `bun dev`.
+1. Launch `bun cli`.
 2. Choose **🚀 Run Programmatic Task**.
 3. Select your task and enter parameter values interactively!
