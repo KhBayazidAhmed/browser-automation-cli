@@ -7,12 +7,17 @@
 		"start": "astro dev",
 		"build": "astro build",
 		"preview": "astro preview",
-		"astro": "astro"
+		"astro": "astro",
+		"pages:create": "wrangler pages project create browser-automation-cli --production-branch main",
+		"deploy": "bun run build && wrangler pages deploy dist --project-name browser-automation-cli --branch main"
 	},
 	"dependencies": {
 		"@astrojs/starlight": "^0.41.7",
 		"astro": "^7.1.6",
 		"sharp": "^0.35.3",
 		"starlight-theme-rapide": "^0.5.2"
+	},
+	"devDependencies": {
+		"wrangler": "^4.125.0"
 	}
 }
