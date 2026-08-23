@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { Browser } from "../cdp/browser.js";
+import { OUTPUT_DIR } from "../runtime-paths.js";
 import {
 	logFlowStart,
 	logFlowSummary,
@@ -10,7 +11,15 @@ import {
 } from "./runner-logger.js";
 import { executeStep } from "./step-executor.js";
 import type { FlowDefinition, FlowExecutionResult, StepExecutionResult } from "./types.js";
+import { parseFlowDefinition } from "./validate.js";
 
+function runFileStem(flowName: string): string {
+	const safeName = flowName.toLowerCase().replace(/[^a-z0-9]/gi, "_") || "flow";
+	const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+	return `flow-${safeName}-${runId}`;
+}
+
+// biome-ignore lint/complexity/noStaticOnlyClass: Retained as the established public API.
 export class FlowRunner {
 	static async run(
 		flow: FlowDefinition,
@@ -21,24 +30,46 @@ export class FlowRunner {
 			profileDirectory?: string;
 		} = {},
 	): Promise<FlowExecutionResult> {
-		const outputDir = join(process.cwd(), "output");
+		const outputDir = OUTPUT_DIR;
 		if (!existsSync(outputDir)) {
 			mkdirSync(outputDir, { recursive: true });
 		}
-
-		const variables: Record<string, unknown> = {
-			...flow.variables,
-			...overrideVars,
-		};
-
 		const extractedData: Record<string, unknown> = {};
 		const stepResults: StepExecutionResult[] = [];
 		const flowStart = performance.now();
+		let validatedFlow: FlowDefinition;
+		try {
+			validatedFlow = parseFlowDefinition(flow);
+		} catch (error) {
+			const invalidResult: FlowExecutionResult = {
+				flowName:
+					flow && typeof flow === "object" && typeof flow.name === "string"
+						? flow.name
+						: "Invalid Flow",
+				success: false,
+				totalDurationMs: Math.round(performance.now() - flowStart),
+				steps: stepResults,
+				data: extractedData,
+				error: error instanceof Error ? error.message : String(error),
+			};
+			const resultFile = join(outputDir, `${runFileStem(invalidResult.flowName)}-result.json`);
+			await Bun.write(
+				resultFile,
+				JSON.stringify({ ...invalidResult, timestamp: new Date().toISOString() }, null, 2),
+			);
+			return invalidResult;
+		}
 
-		logFlowStart(flow.name, flow.description, flow.steps.length);
+		const variables: Record<string, unknown> = {
+			...validatedFlow.variables,
+			...overrideVars,
+		};
 
-		const isHeadless = options.headless ?? flow.headless ?? true;
+		logFlowStart(validatedFlow.name, validatedFlow.description, validatedFlow.steps.length);
+
+		const isHeadless = options.headless ?? validatedFlow.headless ?? true;
 		let browser: Browser | null = null;
+		let result: FlowExecutionResult;
 
 		try {
 			browser = await Browser.launch({
@@ -48,16 +79,15 @@ export class FlowRunner {
 			});
 			const page = await browser.newPage();
 
-			if (flow.blockMedia) {
+			if (validatedFlow.blockMedia) {
 				await page.blockResources(["image", "font", "media"]);
 			}
 
-			for (let i = 0; i < flow.steps.length; i++) {
-				const step = flow.steps[i]!;
+			for (const [i, step] of validatedFlow.steps.entries()) {
 				const stepName = step.name || `${step.action.toUpperCase()} Step ${i + 1}`;
 				const stepStart = performance.now();
 
-				logStepStart(i + 1, flow.steps.length, stepName);
+				logStepStart(i + 1, validatedFlow.steps.length, stepName);
 
 				try {
 					const extracted = await executeStep(step, page, {
@@ -100,46 +130,19 @@ export class FlowRunner {
 				}
 			}
 
-			const totalDuration = Math.round(performance.now() - flowStart);
-			const sanitizedName = flow.name.toLowerCase().replace(/[^a-z0-9]/gi, "_");
-			const resultFile = join(outputDir, `flow-${sanitizedName}-result.json`);
-			await Bun.write(
-				resultFile,
-				JSON.stringify(
-					{
-						flow: flow.name,
-						timestamp: new Date().toISOString(),
-						durationMs: totalDuration,
-						data: extractedData,
-					},
-					null,
-					2,
-				),
-			);
-
-			let dataFile = "";
-			if (Object.keys(extractedData).length > 0) {
-				dataFile = join(outputDir, `flow-${sanitizedName}-data.json`);
-				await Bun.write(dataFile, JSON.stringify(extractedData, null, 2));
-			}
-
-			logFlowSummary(totalDuration, extractedData, dataFile, resultFile);
-
-			return {
-				flowName: flow.name,
+			result = {
+				flowName: validatedFlow.name,
 				success: true,
-				totalDurationMs: totalDuration,
+				totalDurationMs: Math.round(performance.now() - flowStart),
 				steps: stepResults,
 				data: extractedData,
 			};
 		} catch (err: unknown) {
-			const totalDuration = Math.round(performance.now() - flowStart);
 			const errorMsg = err instanceof Error ? err.message : String(err);
-
-			return {
-				flowName: flow.name,
+			result = {
+				flowName: validatedFlow.name,
 				success: false,
-				totalDurationMs: totalDuration,
+				totalDurationMs: Math.round(performance.now() - flowStart),
 				steps: stepResults,
 				data: extractedData,
 				error: errorMsg,
@@ -149,5 +152,21 @@ export class FlowRunner {
 				await browser.close();
 			}
 		}
+
+		const fileStem = runFileStem(validatedFlow.name);
+		const resultFile = join(outputDir, `${fileStem}-result.json`);
+		await Bun.write(
+			resultFile,
+			JSON.stringify({ ...result, timestamp: new Date().toISOString() }, null, 2),
+		);
+		let dataFile = "";
+		if (Object.keys(extractedData).length > 0) {
+			dataFile = join(outputDir, `${fileStem}-data.json`);
+			await Bun.write(dataFile, JSON.stringify(extractedData, null, 2));
+		}
+		if (result.success) {
+			logFlowSummary(result.totalDurationMs, extractedData, dataFile, resultFile);
+		}
+		return result;
 	}
 }

@@ -1,6 +1,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { Page } from "../cdp/page.js";
+import { resolveTuiPath } from "../runtime-paths.js";
+import { serializeCsv } from "./csv.js";
 import type {
 	AssertStep,
 	BlockStep,
@@ -28,7 +30,7 @@ export async function executeExtractStep(
 			const frame = s.frame ? interpolate(s.frame, ctx) : undefined;
 			const rawStrict =
 				typeof s.strictText === "string" ? interpolate(s.strictText, ctx) : s.strictText;
-			return page.getText(selector, {
+			const matchOptions = {
 				frame,
 				text: rawText,
 				strictText: rawStrict,
@@ -37,7 +39,18 @@ export async function executeExtractStep(
 				startsWith: s.startsWith,
 				endsWith: s.endsWith,
 				normalizeWhitespace: s.normalizeWhitespace,
-			});
+				timeout: s.timeout,
+			};
+			await page.waitForSelector(selector, matchOptions);
+			if (s.all) {
+				const allSelector = selector || "*";
+				return s.attribute
+					? page.getMultipleAttribute(allSelector, s.attribute, matchOptions)
+					: page.getMultipleText(allSelector, matchOptions);
+			}
+			return s.attribute
+				? page.getAttribute(selector, s.attribute, matchOptions)
+				: page.getText(selector, matchOptions);
 		}
 
 		case "extractMultiple": {
@@ -88,7 +101,7 @@ export async function executeExtractStep(
 				},
 				containerSelector,
 				s.fields,
-				Number(s.limit) || 100,
+				s.limit ?? 100,
 				filterText,
 				Boolean(s.filterIgnoreCase),
 				s.filterRegex,
@@ -98,8 +111,16 @@ export async function executeExtractStep(
 		case "eval": {
 			const s = step as EvalStep;
 			const code = s.code || s.script || "";
-			const interpolatedCode = interpolate(code, ctx);
+			let interpolatedCode = interpolate(code, ctx);
 			const frameIdentifier = s.frame ? interpolate(s.frame, ctx) : undefined;
+			if (s.selector) {
+				const selector = interpolate(s.selector, ctx);
+				const target = frameIdentifier
+					? await page.frameManager.resolveFrame(frameIdentifier)
+					: page.mainFrame();
+				await target.waitForSelector(selector);
+				interpolatedCode = `(() => {\nconst element = document.querySelector(${JSON.stringify(selector)});\n${interpolatedCode}\n})()`;
+			}
 			if (frameIdentifier) {
 				const f = await page.frameManager.resolveFrame(frameIdentifier);
 				return f.evaluate(interpolatedCode);
@@ -115,11 +136,49 @@ export async function executeExtractStep(
 
 		case "screenshot": {
 			const s = step as ScreenshotStep;
+			let clip: { x: number; y: number; width: number; height: number; scale?: number } | undefined;
+			if (s.selector) {
+				const selector = interpolate(s.selector, ctx);
+				const frame = s.frame
+					? await page.frameManager.resolveFrame(interpolate(s.frame, ctx))
+					: null;
+				const target = frame || page.mainFrame();
+				await target.waitForSelector(selector);
+				clip = await target.evaluate((sel: string) => {
+					const element = document.querySelector(sel);
+					if (!element) return undefined;
+					element.scrollIntoView({ block: "center", inline: "center" });
+					const rect = element.getBoundingClientRect();
+					let x = rect.left;
+					let y = rect.top;
+					let current: Window = window;
+					while (current !== current.top) {
+						try {
+							const frameElement = current.frameElement;
+							if (frameElement) {
+								const frameRect = frameElement.getBoundingClientRect();
+								x += frameRect.left;
+								y += frameRect.top;
+							}
+							current = current.parent;
+						} catch {
+							break;
+						}
+					}
+					x += current.scrollX;
+					y += current.scrollY;
+					return { x, y, width: rect.width, height: rect.height, scale: 1 };
+				}, selector);
+				if (!clip || clip.width <= 0 || clip.height <= 0) {
+					throw new Error(`Cannot capture screenshot for invisible selector "${selector}"`);
+				}
+			}
 			const shotBuffer = await page.screenshot({
-				fullPage: s.fullPage,
+				fullPage: clip ? false : s.fullPage,
+				clip,
 			});
 			if (s.path) {
-				const outPath = interpolate(s.path, ctx);
+				const outPath = resolveTuiPath(interpolate(s.path, ctx));
 				await mkdir(dirname(outPath), { recursive: true });
 				await writeFile(outPath, shotBuffer);
 				return { savedTo: outPath };
@@ -131,7 +190,7 @@ export async function executeExtractStep(
 			const s = step as PDFStep;
 			const pdfBuffer = await page.pdf();
 			if (s.path) {
-				const outPath = interpolate(s.path, ctx);
+				const outPath = resolveTuiPath(interpolate(s.path, ctx));
 				await mkdir(dirname(outPath), { recursive: true });
 				await writeFile(outPath, pdfBuffer);
 				return { savedTo: outPath };
@@ -170,9 +229,14 @@ export async function executeExtractStep(
 
 		case "save": {
 			const s = step as SaveStep;
-			const outPath = interpolate(s.path || "{{outputDir}}/data.json", ctx);
+			const defaultPath = s.format === "csv" ? "{{outputDir}}/data.csv" : "{{outputDir}}/data.json";
+			const outPath = resolveTuiPath(interpolate(s.path || defaultPath, ctx));
 			await mkdir(dirname(outPath), { recursive: true });
-			const content = JSON.stringify(ctx, null, 2);
+			const data =
+				ctx.extractedData && typeof ctx.extractedData === "object"
+					? (ctx.extractedData as Record<string, unknown>)
+					: {};
+			const content = s.format === "csv" ? serializeCsv(data) : JSON.stringify(data, null, 2);
 			await writeFile(outPath, content, "utf-8");
 			return { savedTo: outPath };
 		}

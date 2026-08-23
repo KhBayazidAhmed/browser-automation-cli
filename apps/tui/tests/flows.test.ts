@@ -3,11 +3,12 @@ import { existsSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { FlowRunner } from "../src/flow/runner.js";
 import type { FlowDefinition } from "../src/flow/types.js";
+import { OUTPUT_DIR } from "../src/runtime-paths.js";
 import { setupTestContext, type TestContext, teardownTestContext } from "./fixtures/browser.js";
 
 describe("Declarative Flows & Multi-Step Extraction", () => {
 	let ctx: TestContext;
-	const outputDir = join(process.cwd(), "output");
+	const outputDir = OUTPUT_DIR;
 
 	beforeAll(async () => {
 		ctx = await setupTestContext();

@@ -10,6 +10,14 @@ export function interpolate(
 	if (text === undefined || text === null) return "";
 	return String(text).replace(/\{\{([^{}]+)\}\}/g, (_, key) => {
 		const trimmed = key.trim();
+		if (trimmed.startsWith("env.")) {
+			const envName = trimmed.slice(4);
+			const value = process.env[envName];
+			if (value === undefined) {
+				throw new Error(`Missing required environment variable "${envName}"`);
+			}
+			return value;
+		}
 		return vars[trimmed] !== undefined ? String(vars[trimmed]) : `{{${trimmed}}}`;
 	});
 }

@@ -30,7 +30,7 @@ export interface BaseStep {
 export interface GotoStep extends BaseStep {
 	action: "goto";
 	url: string;
-	waitUntil?: "load" | "domcontentloaded";
+	waitUntil?: "load" | "domcontentloaded" | "networkidle";
 	timeout?: number;
 }
 
