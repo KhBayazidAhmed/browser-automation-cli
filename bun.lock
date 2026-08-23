@@ -33,6 +33,7 @@
     },
     "apps/tui": {
       "name": "tui",
+      "version": "0.1.0",
       "dependencies": {
         "@clack/prompts": "^1.7.0",
         "@modelcontextprotocol/server": "^2.0.0",
