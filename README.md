@@ -36,10 +36,10 @@ bun install
 ### 2. Launch Interactive Terminal Studio
 
 ```bash
-bun run dev
-# or
 bun cli
 ```
+
+`bun run dev` starts every development workspace in the monorepo; `bun cli` starts only the browser automation studio.
 
 The interactive wizard provides a guided terminal experience:
 
@@ -123,21 +123,20 @@ bun flow workflows/my-workflow.json --searchQuery="Bun runtime" --limit=10
 ```json
 {
   "name": "Hacker News Top Stories",
-  "startUrl": "https://news.ycombinator.com",
   "variables": {
     "targetSite": "news.ycombinator.com"
   },
   "steps": [
     { "action": "goto", "url": "https://news.ycombinator.com" },
-    { "action": "assert", "target": "Hacker News", "match": "contains" },
+    { "action": "assert", "selector": "body", "contains": "Hacker News" },
     {
-      "action": "extractList",
-      "target": ".athing",
+      "action": "extractMultiple",
+      "containerSelector": ".athing",
       "fields": {
         "title": ".titleline > a",
         "url": ".titleline > a@href"
       },
-      "variable": "topStories"
+      "as": "topStories"
     },
     { "action": "screenshot", "path": "output/hn-top.png" }
   ]

@@ -1,160 +1,176 @@
-# Direct CDP Browser Automation CLI, TUI Studio & Visual Recorder
+# Direct CDP Browser Automation CLI
 
-Ultra-lightweight, zero-dependency browser automation engine communicating directly with Chrome via Chrome DevTools Protocol (CDP) over native WebSockets in Bun.
+A Bun CLI, guided terminal wizard, and visual recorder built directly on Chrome DevTools Protocol (CDP). It supports text-aware locators, frames, declarative JSON workflows, extraction, screenshots, PDFs, browser profiles, and programmatic tasks.
 
-## Features
+## Requirements
 
-- 🎯 **Strict Text Matching on All Actions**: Target, click, type, extract, and assert elements using exact trimmed strict text (`text="Submit"`, `strictText: true`), immune to dynamic/brittle CSS class changes.
-- 🖥️ **Interactive TUI Studio**: Visual terminal dashboard to browse workflows, inspect step-by-step actions, and launch recording sessions.
-- 🔴 **Visual Live Recorder**: Record user actions in real time with an in-page floating HUD, live cursor tooltip, and auto-selector generator.
-- 📊 **Table & List Card Extraction**: Click one item card to automatically detect and extract all repeated sibling cards/tables.
-- ↩ **Undo & ⏸️ Pause/Resume**: Pause recording anytime to bypass CAPTCHAs/logins, and undo accidental clicks.
-- 🌊 **Declarative Flow Runner**: Run no-code JSON workflows with variable substitution, multi-field data extraction, and assertions.
-- ⚡ **Zero NPM Dependencies**: Uses Bun's native WebSocket and system Chrome.
-- 🚀 **Blazing Fast**: Sub-50ms execution times for DOM interactions, clicks, and evaluations.
-- 🛡️ **Resource Blocking**: Block images, fonts, and CSS with `page.blockResources()` for 5–10x faster page loads.
-- 📸 **Screenshots & PDF**: Full-page and viewport screenshots directly to disk.
-- 💬 **Interactive REPL**: Live browser control prompt in the terminal.
-- 🧪 **Automated Test Suite**: Built-in benchmark and assertion suite.
+- Bun 1.3 or newer
+- Google Chrome, Chromium, Brave, or Microsoft Edge
 
----
-
-## 1. Interactive CLI Wizard
-
-Launch the interactive terminal wizard:
+From this directory:
 
 ```bash
+bun install
 bun run dev
-# or
-bun apps/tui/src/index.ts
 ```
 
-The interactive wizard provides a clean, step-by-step experience powered by `@clack/prompts`:
+From the repository root, use `bun cli` to open only this app. The root `bun run dev` command starts every development workspace.
 
-```text
-┌  ⚡ Browser Automation Studio
-│
-◇  What would you like to do?
-│  ● 🌊 Run a Workflow (3 available)
-│  ○ 🔴 Record New Workflow
-│  ○ 🚀 Run Programmatic Task
-│  ○ 💬 Open Interactive Browser REPL
-│  ○ 📁 View Extracted Data & Outputs (4 files)
-│  ○ ❌ Exit
-```
-
-- **Fuzzy Selection**: Select workflows or tasks with arrow keys and Enter.
-- **Inspect Step Breakdown**: Inspect what each step does before running it.
-- **Live Spinners & Extracted Data Summaries**: Real-time progress without full-screen clearing.
-- **Graceful Cancellation**: Press `[Esc]` or `[Ctrl+C]` at any prompt to go back or exit.
-
----
-
-## 2. Visual Flow Recorder (No-Code Creation)
-
-Start recording on any website:
+## Common commands
 
 ```bash
-bun run record workflows/my-flow.json https://news.ycombinator.com
-```
+# Interactive wizard
+bun run dev
 
-### In-Page HUD Toolbar & Live Config Inspector
+# Record a workflow
+bun run record workflows/my-flow.json https://example.com
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ ⠿ | 🔴 REC (4) | ⏸️ Pause | 🔍 Extract | 📊 List | 🔎 Assert | ⏱️ Wait | 📸 Shot | ⚙️ Config (4) | ↩ Undo | 🛑 Finish │
-└─────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
-```
-
-| Control | Action |
-| :--- | :--- |
-| **Normal Click** | Records a click action with smart, resilient selector. |
-| **Type in Input** | Records input text on change/submit with target labels. |
-| **🔍 Extract Text** *(Shift+Click)* | Opens in-page variable modal to extract text into a named variable. |
-| **📊 Extract List** | Click one repeated item card or table row; automatically extracts all matching items with titles & links. |
-| **🔎 Assert Text** *(Alt+Click)* | Opens Assertion modal with Strict Equal, Substring Contains, or Regex matching options. |
-| **⏱️ Add Wait** | Injects custom delay (`wait: 1500ms`) or dynamic wait for selector. |
-| **⚙️ Config (N)** | **Live Config Inspector Drawer**: View real-time JSON config, inspect/delete/reorder steps, and manage variables. |
-| **⏸️ Pause / Resume** | Pause recording to navigate or solve CAPTCHAs without recording noise. |
-| **↩ Undo Step** | Reverts the last recorded action. |
-| **📸 Screenshot** | Injects an instant screenshot step at that point in the flow. |
-| **🛑 Finish & Save** | Saves the flow to JSON and closes the browser. |
-
-### Interactive Terminal CLI Commands While Recording
-
-While Chrome is open, the terminal prompt gives you real-time inspection and control:
-- `c` or `config` — Print live, syntax-formatted JSON workflow configuration
-- `s` or `steps` — Print numbered step-by-step breakdown
-- `w <ms>` — Insert wait delay (e.g. `w 2000`)
-- `u` or `undo` — Undo last recorded step
-- `d <num>` — Delete any step by index (e.g. `d 2`)
-- `v <key>=<val>` — Add or update a workflow variable (e.g. `v userEmail=test@corp.com`)
-- `p` or `pause` — Toggle pause / resume
-- `f` or `[Enter]` on empty line — Finish and save workflow
-
----
-
-## 3. Running Declarative Automation Flows (CLI Replay)
-
-Execute any recorded or hand-written `.json` workflow directly:
-
-```bash
-# Replay headless in the background
+# Run a workflow, headless by default
 bun run flow workflows/hn-top-stories.json
-
-# Replay visibly in a Chrome window
 bun run flow workflows/hn-top-stories.json --headed
 
-# Replay with variable overrides
-bun run flow workflows/form-pipeline.json --fullName="Alice" --userEmail="alice@test.com"
-```
+# Override workflow variables
+bun run flow workflows/search.json --query="browser automation" --limit=10
 
----
-
-## 4. Running Programmatic Tasks
-
-```bash
-# List all tasks
+# Tasks and live REPL
 bun run tasks
-
-# Run specific task with parameters
 bun run task scrape-hn --limit=5
-bun run task site-audit --url=https://github.com
-bun run task form-submit --name="Bob"
+bun run repl
+
+# Direct one-page operation
+bun src/index.ts --url=https://example.com --screenshot=output/example.png
+
+# Verification
+bun run check-types
+bun run test
 ```
 
----
+Relative paths beginning with `workflows/` or `output/` resolve against this app directory, even when the command is launched from the repository root.
 
-## 5. Testing & Verification
+## Recorder
 
-We follow the industry-standard architecture for browser testing (in-memory HTTP fixture server + native test runner):
+The recorder opens a visible browser and adds an in-page toolbar. It records navigation, clicks, typing, waits, assertions, extraction, list extraction, and screenshots. The terminal also accepts:
+
+- `c` / `config` — print the current JSON
+- `s` / `steps` — list recorded steps
+- `w <ms>` — add a wait
+- `u` / `undo` — remove the last step
+- `d <index>` — delete a step
+- `v <key>=<value>` — set a workflow variable
+- `p` / `pause` — pause or resume recording
+- `f` or an empty line — finish
+
+The workflow draft is checkpointed throughout recording, so closing the browser still leaves the latest draft on disk.
+
+### Secrets
+
+Password, token, secret, and one-time-code inputs are never stored as literal values by the recorder. They become environment references such as:
+
+```json
+{
+  "action": "type",
+  "selector": "input[type=password]",
+  "text": "{{env.LOGIN_PASSWORD}}"
+}
+```
+
+Set the value only in the process environment:
 
 ```bash
-# Run all test suites
-bun run test
-
-# Watch mode for instantaneous feedback
-bun run test:watch
-
-# Run tests visibly in an active Chrome window (headed mode)
-bun run test:headed
-
-# Run only Strict Text & Assertion tests
-bun run test:strict
-
-# Run only Declarative Flow tests
-bun run test:flows
-
-# Run specific tests matching a pattern
-bun test -t "disambiguate"
-bun test -t "extract"
+LOGIN_PASSWORD='your-secret' bun run flow workflows/login.json
 ```
 
-### Architecture
-- **In-Memory Test Server** ([`tests/fixtures/server.ts`](file:///Users/bixbd/Desktop/coding-heaven/browser-automation-cli/apps/tui/tests/fixtures/server.ts)): Starts a zero-latency `Bun.serve` instance on ephemeral `127.0.0.1:0` serving realistic HTML routes (`/`, `/disambiguation`, `/forms`, `/async`, `/inventory`, `/boundaries`).
-- **Standard Test Suites** ([`tests/`](file:///Users/bixbd/Desktop/coding-heaven/browser-automation-cli/apps/tui/tests/)):
-  - `cdp-core.test.ts` — CDP protocol, metrics, navigation, and network blocking
-  - `locators.test.ts` — Exact text targeting, disambiguation, pseudo-selectors
-  - `forms.test.ts` — Inputs, placeholders, aria-labels, and async DOM waiting
-  - `flows.test.ts` — Multi-step declarative flows, variable passing, list extraction
-  - `assertions.test.ts` — Strict equality, substring rejection, boundary handling
+Navigation URLs containing common credential or session parameters are skipped by the recorder. Do not commit cookies, session URLs, passwords, or generated output containing private data.
+
+## Workflow format
+
+This is a complete, valid example:
+
+```json
+{
+  "name": "Hacker News Top Stories",
+  "description": "Extract the first ten story links",
+  "headless": true,
+  "blockMedia": true,
+  "variables": {
+    "siteUrl": "https://news.ycombinator.com"
+  },
+  "steps": [
+    {
+      "name": "Open Hacker News",
+      "action": "goto",
+      "url": "{{siteUrl}}",
+      "waitUntil": "domcontentloaded"
+    },
+    {
+      "name": "Verify the page",
+      "action": "assert",
+      "selector": "body",
+      "contains": "Hacker News"
+    },
+    {
+      "name": "Extract stories",
+      "action": "extractMultiple",
+      "containerSelector": "tr.athing",
+      "limit": 10,
+      "fields": {
+        "title": ".titleline > a",
+        "url": ".titleline > a@href"
+      },
+      "as": "topStories"
+    },
+    {
+      "action": "screenshot",
+      "path": "output/hn-top.png",
+      "fullPage": true
+    },
+    {
+      "action": "save",
+      "path": "output/hn-top.csv",
+      "format": "csv"
+    }
+  ]
+}
+```
+
+Supported actions:
+
+| Action | Required fields | Useful options |
+| --- | --- | --- |
+| `goto` | `url` | `waitUntil`, `timeout` |
+| `click` | a selector or text matcher | `frame`, `strictText`, `ignoreCase`, `timeout` |
+| `type` | `text` and `selector`/`targetText` | `clearFirst`, `frame`, `timeout` |
+| `wait` | `durationMs` | — |
+| `waitForSelector` | a selector or text matcher | `frame`, `timeout` |
+| `extract` | `as` and a selector/text matcher | `attribute`, `all`, `frame`, `timeout` |
+| `extractMultiple` | `as`, `containerSelector`, `fields` | `limit`, text/regex filters, `frame` |
+| `screenshot` | — | `path`, `selector`, `fullPage`, `frame` |
+| `pdf` | — | `path` |
+| `block` | `types` | image, stylesheet, font, media, script |
+| `eval` | `code` or `script` | `selector`, `frame`, `as` |
+| `assert` | an assertion condition | `selector`, `attribute`, `frame`, `timeout` |
+| `save` | — | `path`, `format` (`json` or `csv`) |
+
+Text matching supports `text`, `strictText`, `regex`, `startsWith`, `endsWith`, `ignoreCase`, and `normalizeWhitespace` where applicable. An `eval` step with a selector exposes the matched DOM node as `element` to its script.
+
+Each run writes a uniquely named full report to `output/`. Runs with extracted data also write a separate data file. A failed run includes completed-step details and the failure message.
+
+## Browser profiles
+
+```bash
+bun src/index.ts profiles
+bun run flow workflows/my-flow.json --profile=<profile-id>
+```
+
+By default, a selected browser profile is copied into a temporary isolated directory and removed after the run. `--direct-profile` uses the original profile directory and should only be used when that browser is closed.
+
+## Test architecture
+
+The browser tests use an ephemeral local HTTP fixture server and a real Chromium-based browser. The main suites cover CDP lifecycle, navigation, locators, clicks, forms, frames, recording, resource blocking, screenshots, assertions, workflows, and profile handling.
+
+```bash
+bun run test
+bun run test:headed
+bun run test:strict
+bun run test:flows
+```
