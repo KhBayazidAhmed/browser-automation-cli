@@ -49,8 +49,8 @@ describe("Recorder selector engine and pointer step builder", () => {
 		await teardownTestContext(ctx);
 	});
 
-	const waitForClicks = async (count: number) => {
-		for (let attempt = 0; attempt < 40; attempt++) {
+	const waitForClicks = async (count: number, attempts = 40) => {
+		for (let attempt = 0; attempt < attempts; attempt++) {
 			const clicks = recordedEvents.filter((event) => event.type === "click");
 			if (clicks.length >= count) return clicks;
 			await new Promise((resolve) => setTimeout(resolve, 10));
@@ -161,7 +161,7 @@ describe("Recorder selector engine and pointer step builder", () => {
 				);
 		});
 
-		const [event] = await waitForClicks(1);
+		const [event] = await waitForClicks(1, 100);
 		expect(event?.selector).toBe('div:text-is("Compose Message")');
 		expect(event?.sourceEvent).toBe("mousedown");
 		expect(event?.pointerType).toBe("mouse");

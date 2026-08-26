@@ -1,5 +1,18 @@
 export const INJECTED_STEP_BUILDER_SRC = `
   let lastRecordedPointer = null;
+  let pendingPointerStep = null;
+  let pendingPointerFlushTimer = null;
+
+  function flushPendingPointerStep() {
+    if (pendingPointerFlushTimer) { clearTimeout(pendingPointerFlushTimer); pendingPointerFlushTimer = null; }
+    const payload = pendingPointerStep;
+    if (!payload) return;
+    pendingPointerStep = null;
+    flowState.steps.push(payload.step);
+    persistState(); renderDrawer();
+    emitRecordEvent(payload.recordEvent);
+    showToast(\`✓ Click: \${payload.step.selector}\${payload.step.text ? \` ("\${payload.step.text.slice(0, 15)}")\` : ''}\`);
+  }
 
   function resolveRecorderPointerTarget(target) {
     if (!target || target.nodeType !== Node.ELEMENT_NODE) return null;
@@ -52,10 +65,9 @@ export const INJECTED_STEP_BUILDER_SRC = `
   function recordPointerStep(event, rawTarget) {
     const payload = buildPointerStepPayload(event, rawTarget);
     if (!payload) return false;
-    flowState.steps.push(payload.step);
-    persistState(); renderDrawer();
-    emitRecordEvent(payload.recordEvent);
-    showToast(\`✓ Click: \${payload.step.selector}\${payload.step.text ? \` ("\${payload.step.text.slice(0, 15)}")\` : ''}\`);
+    flushPendingPointerStep();
+    pendingPointerStep = payload;
+    pendingPointerFlushTimer = setTimeout(flushPendingPointerStep, 500);
     return true;
   }
 `;

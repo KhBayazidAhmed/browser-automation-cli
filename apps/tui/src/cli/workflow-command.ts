@@ -26,6 +26,7 @@ const EXECUTION_FLAGS = new Set([
 	"dry-run",
 	"headed",
 	"headless",
+	"debug",
 	"profile",
 	"user-data-dir",
 	"profile-directory",

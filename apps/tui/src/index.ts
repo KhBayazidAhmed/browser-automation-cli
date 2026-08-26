@@ -38,6 +38,7 @@ async function main() {
 		(args[0] === "task" && args[1] && args[1] !== "list") ||
 		(args[0] === "task" && args[1] === "run" && Boolean(args[2]));
 	const isHeaded = args.includes("--headed") || args.includes("--headless=false");
+	const isDebug = args.includes("--debug");
 	const directUrl = flagValue(args, "--url");
 	const screenshotPath = flagValue(args, "--screenshot");
 	const needsBrowserProfile =
@@ -117,6 +118,7 @@ async function main() {
 
 		const result = await FlowRunner.run(flowDef, parseCliKeyValues(args, 2), {
 			headless: !isHeaded,
+			debug: isDebug,
 			userDataDir: profileConfig.userDataDir,
 			profileDirectory: profileConfig.profileDirectory,
 		});

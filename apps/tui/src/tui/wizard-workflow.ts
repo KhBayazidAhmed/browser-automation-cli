@@ -58,6 +58,11 @@ export async function handleRunWorkflowSelection(selectedWf: WorkflowFile) {
 				label: "👤 Run with Existing Browser Profile...",
 				hint: "Use your saved logins & cookies",
 			},
+			{
+				value: "debug",
+				label: "🐛 Debug Step-by-Step (Visible Browser)",
+				hint: "Pause between steps: next, back, skip, inspect",
+			},
 			{ value: "inspect", label: "🔍 Inspect Step-by-Step Breakdown" },
 			{ value: "back", label: "↩  Back" },
 		],
@@ -67,7 +72,8 @@ export async function handleRunWorkflowSelection(selectedWf: WorkflowFile) {
 
 	let userDataDir: string | undefined;
 	let profileDirectory: string | undefined;
-	let isHeaded = viewSteps === "run_headed";
+	const isDebug = viewSteps === "debug";
+	let isHeaded = viewSteps === "run_headed" || isDebug;
 
 	if (viewSteps === "run_profile") {
 		const profileConfig = await promptProfileSelection("Choose profile for workflow execution:");
@@ -115,6 +121,7 @@ export async function handleRunWorkflowSelection(selectedWf: WorkflowFile) {
 		{},
 		{
 			headless: !isHeaded,
+			debug: isDebug,
 			userDataDir,
 			profileDirectory,
 		},
