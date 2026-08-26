@@ -32,7 +32,7 @@ export class FrameManager {
 			if (!p?.frameId) return;
 			const existing = this._frames.get(p.frameId);
 			if (existing) existing.parentId = p.parentFrameId;
-			else
+			else {
 				this._frames.set(
 					p.frameId,
 					new Frame(this.page, {
@@ -42,6 +42,7 @@ export class FrameManager {
 						contextId: this._frameIdToContext.get(p.frameId),
 					}),
 				);
+			}
 		});
 
 		this.page.client.on(
@@ -101,11 +102,11 @@ export class FrameManager {
 		this.page.client.on(
 			"Runtime.executionContextDestroyed",
 			(p: { executionContextId: number }) => {
-				for (const [fId, ctxId] of this._frameIdToContext.entries()) {
-					if (ctxId === p?.executionContextId) {
-						this._frameIdToContext.delete(fId);
-						const f = this._frames.get(fId);
-						if (f && f.contextId === ctxId) f.contextId = undefined;
+				for (const [frameId, ctxId] of this._frameIdToContext.entries()) {
+					if (ctxId === p.executionContextId) {
+						this._frameIdToContext.delete(frameId);
+						const frame = this._frames.get(frameId);
+						if (frame && frame.contextId === ctxId) frame.contextId = undefined;
 					}
 				}
 			},
@@ -117,37 +118,47 @@ export class FrameManager {
 		});
 	}
 
-	private processFrameTree(
-		node: {
+	private processFrameTree(tree: {
+		frame: { id: string; parentId?: string; url?: string; name?: string };
+		childFrames?: Array<{
 			frame: { id: string; parentId?: string; url?: string; name?: string };
-			childFrames?: any[];
-		},
-		parentId?: string,
-	): void {
-		const f = node.frame;
-		if (!f) return;
-		const actualParentId = f.parentId || parentId;
-		if (!actualParentId) this._mainFrameId = f.id;
-		this._frames.set(
-			f.id,
-			new Frame(this.page, {
-				id: f.id,
-				parentId: actualParentId,
-				url: f.url || "",
-				name: f.name,
-				contextId: this._frameIdToContext.get(f.id),
-			}),
-		);
-		if (Array.isArray(node.childFrames)) {
-			for (const child of node.childFrames) this.processFrameTree(child, f.id);
+			childFrames?: unknown[];
+		}>;
+	}): void {
+		const f = tree.frame;
+		if (!f?.id) return;
+		if (!f.parentId) this._mainFrameId = f.id;
+
+		const existing = this._frames.get(f.id);
+		if (existing) {
+			existing.url = f.url || existing.url;
+			existing.name = f.name || existing.name;
+			existing.parentId = f.parentId;
+		} else {
+			this._frames.set(
+				f.id,
+				new Frame(this.page, {
+					id: f.id,
+					parentId: f.parentId,
+					url: f.url || "",
+					name: f.name,
+					contextId: this._frameIdToContext.get(f.id),
+				}),
+			);
+		}
+
+		if (Array.isArray(tree.childFrames)) {
+			for (const child of tree.childFrames)
+				this.processFrameTree(child as Parameters<FrameManager["processFrameTree"]>[0]);
 		}
 	}
 
 	mainFrame(): Frame {
-		if (this._mainFrameId && this._frames.has(this._mainFrameId))
+		if (this._mainFrameId && this._frames.has(this._mainFrameId)) {
 			return this._frames.get(this._mainFrameId)!;
+		}
 		for (const frame of this._frames.values()) {
-			if (frame.isMainFrame()) return frame;
+			if (!frame.parentId) return frame;
 		}
 		const fallback = new Frame(this.page, { id: "main", url: "about:blank" });
 		this._frames.set("main", fallback);
@@ -158,48 +169,47 @@ export class FrameManager {
 		return Array.from(this._frames.values());
 	}
 
-	getFrame(filter: FrameIdentifier): Frame | undefined {
-		if (typeof filter === "string") {
-			const str = filter.trim();
-			if (this._frames.has(str)) return this._frames.get(str);
+	getFrame(identifier: FrameIdentifier): Frame | undefined {
+		if (typeof identifier === "string") {
+			if (this._frames.has(identifier)) return this._frames.get(identifier);
 			for (const frame of this._frames.values()) {
-				if (frame.name === str) return frame;
-			}
-			for (const frame of this._frames.values()) {
-				if (frame.url && (frame.url.includes(str) || str.includes(frame.url))) return frame;
+				if (frame.name === identifier) return frame;
+				if (frame.url.includes(identifier)) return frame;
 			}
 			return undefined;
 		}
-		return this.frames().find((f) => {
-			if (filter.id && f.id !== filter.id) return false;
-			if (filter.name && f.name !== filter.name) return false;
-			if (filter.url) {
-				if (filter.url instanceof RegExp) {
-					if (!filter.url.test(f.url)) return false;
-				} else if (!f.url.includes(filter.url) && !filter.url.includes(f.url)) return false;
+		return this.frames().find((frame) => {
+			if (identifier.id && frame.id !== identifier.id) return false;
+			if (identifier.name && frame.name !== identifier.name) return false;
+			if (identifier.url) {
+				if (typeof identifier.url === "string" && !frame.url.includes(identifier.url)) return false;
+				if (identifier.url instanceof RegExp && !identifier.url.test(frame.url)) return false;
 			}
 			return true;
 		});
 	}
 
-	async resolveFrame(identifier?: FrameIdentifier, timeout = 5000): Promise<Frame> {
-		if (!identifier) return this.mainFrame();
+	async resolveFrame(identifier: FrameIdentifier, timeout = 10000): Promise<Frame> {
 		const start = Date.now();
 		while (Date.now() - start < timeout) {
-			const direct = this.getFrame(identifier);
-			if (direct) {
-				await direct.ensureContextId(500);
-				return direct;
+			const frame = this.getFrame(identifier);
+			if (frame) {
+				await frame.ensureContextId(500);
+				return frame;
 			}
 			if (typeof identifier === "string") {
 				try {
-					const frameSrc = await this.page.evaluate<string | null>((sel: string) => {
-						const el = (document.querySelector(sel) ||
-							document.querySelector(
-								`iframe[name='${sel}'], iframe[src*='${sel}'], iframe#${sel}`,
-							)) as HTMLIFrameElement | null;
-						return el ? el.src || el.name || el.id : null;
-					}, identifier);
+					const mainCtx = await this.mainFrame().ensureContextId(500);
+					const frameSrc = await this.page.evaluateInContext<string | null>(
+						mainCtx,
+						(selector) => {
+							const el = (document.querySelector(selector) ||
+								document.querySelector(`iframe[name="${selector}"]`) ||
+								document.querySelector(`iframe#${selector}`)) as HTMLIFrameElement | null;
+							return el ? el.src || el.name || el.id : null;
+						},
+						identifier,
+					);
 					if (frameSrc) {
 						const matched = this.getFrame(frameSrc);
 						if (matched) {
@@ -226,7 +236,6 @@ export class FrameManager {
 	): Promise<Frame | null> {
 		const matchOpts = serializeMatchOptions(options);
 		const expr = `${INJECTED_FIND_ELEMENT_SRC}\nreturn Boolean(__cdpFindElement(arguments[0], arguments[1]));`;
-
 		try {
 			const mainCtx = await this.mainFrame().ensureContextId(400);
 			const existsInMain = await this.page.evaluateInContext<boolean>(

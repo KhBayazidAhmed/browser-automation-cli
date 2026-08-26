@@ -26,6 +26,11 @@ export const HUD_STYLES_MODALS = `
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   }
+  .modal-card-lg {
+    width: 560px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
   .modal-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
   .modal-desc { font-size: 11.5px; color: #71717a; margin-bottom: 16px; }
   .modal-row { margin-bottom: 12px; }
@@ -97,5 +102,33 @@ export const HUD_STYLES_MODALS = `
   .fields-table td {
     padding: 4px 6px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  }
+
+  .badge-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10.5px;
+    font-weight: 600;
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.25);
+  }
+  .badge-frame {
+    background: rgba(168, 85, 247, 0.15);
+    color: #c084fc;
+    border: 1px solid rgba(168, 85, 247, 0.25);
+  }
+  .builder-row-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .hud-btn.active-pick {
+    background: rgba(59, 130, 246, 0.2) !important;
+    border-color: #3b82f6 !important;
+    color: #60a5fa !important;
   }
 `;

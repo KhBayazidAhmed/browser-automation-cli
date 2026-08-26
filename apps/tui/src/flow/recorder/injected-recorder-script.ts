@@ -22,7 +22,7 @@ export const INJECTED_ADVANCED_RECORDER_SCRIPT = `
     if (saved) flowState = { ...flowState, ...JSON.parse(saved) };
   } catch {}
 
-  let isExtractMode = false, isListExtractMode = false, isAssertMode = false;
+  let isPointerMode = false, isExtractMode = false, isListExtractMode = false, isAssertMode = false;
   let isCollapsed = false, isDrawerOpen = false, extractCount = 0, hoveredEl = null;
 
   function persistState() {
@@ -62,6 +62,7 @@ export const INJECTED_ADVANCED_RECORDER_SCRIPT = `
         try {
           iframes[i].contentWindow?.postMessage({
             type: "__cdp_recorder_mode__",
+            isPointerMode,
             isExtractMode,
             isListExtractMode,
             isAssertMode,
@@ -75,12 +76,17 @@ export const INJECTED_ADVANCED_RECORDER_SCRIPT = `
   window.addEventListener("message", (e) => {
     if (!e.data) return;
     if (e.data.type === "__cdp_recorder_mode__") {
+      if (typeof e.data.isPointerMode === "boolean") isPointerMode = e.data.isPointerMode;
       if (typeof e.data.isExtractMode === "boolean") isExtractMode = e.data.isExtractMode;
       if (typeof e.data.isListExtractMode === "boolean") isListExtractMode = e.data.isListExtractMode;
       if (typeof e.data.isAssertMode === "boolean") isAssertMode = e.data.isAssertMode;
       if (typeof e.data.isPaused === "boolean") flowState.isPaused = e.data.isPaused;
     } else if (e.data.type === "__cdp_child_record_event__" && isTopWindow && e.data.payload) {
       emitRecordEvent(e.data.payload);
+    } else if (e.data.type === "__cdp_child_pointer_pick__" && isTopWindow && e.data.payload) {
+      if (typeof openStepBuilderModal === "function") {
+        openStepBuilderModal(e.data.payload);
+      }
     }
   });
 

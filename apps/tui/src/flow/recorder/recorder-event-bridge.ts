@@ -36,36 +36,42 @@ export function handleRecordedEvent(
 		Object.assign(variables, event.variables);
 	} else if (event.type === "click") {
 		steps.push({
-			name: event.text ? `Click "${event.text}"` : `Click ${event.selector}`,
+			name:
+				(event.name as string) ||
+				(event.text ? `Click "${event.text}"` : `Click ${event.selector}`),
 			action: "click",
 			frame,
 			selector: event.selector as string,
 			text: (event.text as string) || undefined,
 			strictText: event.text ? true : undefined,
+			timeout: (event.timeout as number) || undefined,
 		});
 	} else if (event.type === "type") {
 		steps.push({
-			name: `Type into ${event.selector}`,
+			name: (event.name as string) || `Type into ${event.selector}`,
 			action: "type",
 			frame,
 			selector: event.selector as string,
-			text: event.value as string,
+			text: (event.value as string) ?? (event.text as string) ?? "",
 			targetText: (event.targetText as string) || undefined,
+			clearFirst: (event.clearFirst as boolean) ?? undefined,
 			strictText: true,
+			timeout: (event.timeout as number) || undefined,
 		});
 	} else if (event.type === "extract") {
 		steps.push({
-			name: `Extract "${event.as}" from ${event.selector}`,
+			name: (event.name as string) || `Extract "${event.as}" from ${event.selector}`,
 			action: "extract",
 			frame,
 			selector: event.selector as string,
 			as: event.as as string,
+			attribute: (event.attribute as string) || undefined,
 			text: (event.text as string) || (event.sampleValue as string) || undefined,
 			strictText: true,
 		});
 	} else if (event.type === "extractMultiple") {
 		steps.push({
-			name: `Extract List "${event.as}" from ${event.containerSelector}`,
+			name: (event.name as string) || `Extract List "${event.as}" from ${event.containerSelector}`,
 			action: "extractMultiple",
 			frame,
 			containerSelector: event.containerSelector as string,
@@ -93,12 +99,6 @@ export function handleRecordedEvent(
 			endsWith: (event.endsWith as string) || undefined,
 			strictText: (event.strictText as boolean) ?? true,
 		});
-	} else if (event.type === "wait") {
-		steps.push({
-			name: (event.name as string) || `Wait ${event.durationMs}ms`,
-			action: "wait",
-			durationMs: (event.durationMs as number) || 1000,
-		});
 	} else if (event.type === "waitForSelector") {
 		steps.push({
 			name: (event.name as string) || `Wait for ${event.selector || event.text}`,
@@ -107,6 +107,21 @@ export function handleRecordedEvent(
 			selector: (event.selector as string) || undefined,
 			text: (event.text as string) || undefined,
 			strictText: (event.strictText as boolean) || undefined,
+			timeout: (event.timeout as number) || undefined,
+		});
+	} else if (event.type === "hover") {
+		steps.push({
+			name: (event.name as string) || `Hover ${event.selector}`,
+			action: "hover",
+			frame,
+			selector: event.selector as string,
+		});
+	} else if (event.type === "scrollIntoView") {
+		steps.push({
+			name: (event.name as string) || `Scroll ${event.selector} into view`,
+			action: "scrollIntoView",
+			frame,
+			selector: event.selector as string,
 		});
 	} else if (event.type === "eval") {
 		steps.push({
@@ -115,6 +130,12 @@ export function handleRecordedEvent(
 			frame,
 			code: event.code as string,
 			as: (event.as as string) || undefined,
+		});
+	} else if (event.type === "wait") {
+		steps.push({
+			name: (event.name as string) || `Wait ${event.durationMs}ms`,
+			action: "wait",
+			durationMs: (event.durationMs as number) || 1000,
 		});
 	} else if (event.type === "screenshot") {
 		steps.push({

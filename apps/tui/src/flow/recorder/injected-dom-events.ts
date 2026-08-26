@@ -5,28 +5,13 @@ export const INJECTED_DOM_EVENTS_SRC = `
     const tag = el.tagName.toLowerCase();
     if (tag === "iframe" || tag === "frame") return null;
     const clickableParent = el.closest ? el.closest("button, a, [role='button'], input[type='submit'], input[type='button'], [tabindex]") : null;
-    if (clickableParent && clickableParent !== el && !isExtractMode && !isListExtractMode && !isAssertMode) el = clickableParent;
-    if (el.id) return '#' + CSS.escape(el.id);
-    if (el.name) return el.tagName.toLowerCase() + '[name="' + CSS.escape(el.name) + '"]';
-    if (el.getAttribute('data-testid')) return '[data-testid="' + CSS.escape(el.getAttribute('data-testid')) + '"]';
-    if (el.getAttribute('data-action')) return '[data-action="' + CSS.escape(el.getAttribute('data-action')) + '"]';
-    if (el.getAttribute('data-qa')) return '[data-qa="' + CSS.escape(el.getAttribute('data-qa')) + '"]';
-    if (el.getAttribute('aria-label')) return '[aria-label="' + CSS.escape(el.getAttribute('aria-label')) + '"]';
-    if (el.getAttribute('placeholder')) return '[placeholder="' + CSS.escape(el.getAttribute('placeholder')) + '"]';
-    if (el.className && typeof el.className === 'string') {
-      const classes = el.className.trim().split(/\\s+/).filter(c => c && !c.includes(':') && !c.includes('/') && !['active', 'hover', 'focus', 'selected', 'disabled', 'open'].includes(c));
-      if (classes.length > 0) return el.tagName.toLowerCase() + '.' + CSS.escape(classes[0]);
+    if (clickableParent && clickableParent !== el && !isExtractMode && !isListExtractMode && !isAssertMode && !isPointerMode) el = clickableParent;
+    if (typeof generateSelectorCandidates === "function") {
+      const res = generateSelectorCandidates(el);
+      if (res && res.recommended) return res.recommended;
     }
-    const path = []; let current = el, depth = 0;
-    while (current && current !== document.body && current !== document.documentElement && depth < 5) {
-      depth++;
-      if (current.id) { path.unshift('#' + CSS.escape(current.id)); break; }
-      let sibling = current, nth = 1;
-      while (sibling.previousElementSibling) { sibling = sibling.previousElementSibling; if (sibling.tagName === current.tagName) nth++; }
-      path.unshift(current.tagName.toLowerCase() + (nth > 1 ? ':nth-of-type(' + nth + ')' : ''));
-      current = current.parentElement;
-    }
-    return path.join(' > ') || el.tagName.toLowerCase();
+    if (el.id && !isDynamicId(el.id)) return '#' + CSS.escape(el.id);
+    return tag;
   }
 
   function findRepeatedContainer(el) {
@@ -34,7 +19,7 @@ export const INJECTED_DOM_EVENTS_SRC = `
     while (current && current !== document.body && depth < 4) {
       depth++;
       if (current.className && typeof current.className === 'string') {
-        const classes = current.className.trim().split(/\\s+/).filter(c => c && !c.includes(':'));
+        const classes = filterStableClasses(current.className);
         if (classes.length > 0) return { selector: current.tagName.toLowerCase() + '.' + classes[0], count: current.parentElement ? current.parentElement.children.length : 1 };
       }
       if (current.tagName.toLowerCase() === 'tr') return { selector: current.className ? 'tr.' + current.className.split(' ')[0] : 'tr', count: current.parentElement ? current.parentElement.children.length : 1 };
@@ -45,22 +30,34 @@ export const INJECTED_DOM_EVENTS_SRC = `
 
   let tooltipRafId = null;
   document.addEventListener("mouseover", (e) => {
-    if (flowState.isPaused || (!isExtractMode && !isListExtractMode && !isAssertMode && !e.shiftKey && !e.altKey)) return;
+    if (flowState.isPaused || (!isPointerMode && !isExtractMode && !isListExtractMode && !isAssertMode && !e.shiftKey && !e.altKey)) return;
     const target = e.target;
     if (!target || target.closest("#__cdp_recorder_hud__")) return;
     if (target.tagName && (target.tagName.toLowerCase() === "iframe" || target.tagName.toLowerCase() === "frame")) return;
     if (hoveredEl && hoveredEl !== target) hoveredEl.style.outline = "";
     hoveredEl = target;
-    if (isListExtractMode) {
+
+    const frameInfo = getIframeContextInfo();
+    const frameTag = frameInfo.isIframe ? (' [' + (frameInfo.frameIdentifier || 'frame') + ']') : '';
+
+    if (isPointerMode) {
+      hoveredEl.style.outline = "2px dashed #60a5fa";
+      if (tooltip) {
+        tooltip.style.display = "block";
+        tooltip.style.transform = \`translate3d(\${e.clientX + 12}px, \${e.clientY + 12}px, 0)\`;
+        const sel = getBestSelector(target);
+        tooltip.innerText = \`🎯 Select: \${sel}\${frameTag}\`;
+      }
+    } else if (isListExtractMode) {
       const containerInfo = findRepeatedContainer(target);
       hoveredEl.style.outline = "2px dashed #38bdf8";
-      if (tooltip) { tooltip.style.display = "block"; tooltip.style.transform = \`translate3d(\${e.clientX + 12}px, \${e.clientY + 12}px, 0)\`; tooltip.innerText = \`📊 List: \${containerInfo.selector}\`; }
+      if (tooltip) { tooltip.style.display = "block"; tooltip.style.transform = \`translate3d(\${e.clientX + 12}px, \${e.clientY + 12}px, 0)\`; tooltip.innerText = \`📊 List: \${containerInfo.selector}\${frameTag}\`; }
     } else if (isAssertMode || e.altKey) {
       hoveredEl.style.outline = "2px dashed #f59e0b";
-      if (tooltip) { tooltip.style.display = "block"; tooltip.style.transform = \`translate3d(\${e.clientX + 12}px, \${e.clientY + 12}px, 0)\`; const text = target.innerText?.trim() || target.textContent?.trim() || ""; tooltip.innerText = \`🔎 Assert: "\${text.slice(0, 25)}"\`; }
+      if (tooltip) { tooltip.style.display = "block"; tooltip.style.transform = \`translate3d(\${e.clientX + 12}px, \${e.clientY + 12}px, 0)\`; const text = target.innerText?.trim() || target.textContent?.trim() || ""; tooltip.innerText = \`🔍 Assert: "\${text.slice(0, 25)}"\${frameTag}\`; }
     } else {
       hoveredEl.style.outline = "2px dashed #10b981";
-      if (tooltip) { tooltip.style.display = "block"; tooltip.style.transform = \`translate3d(\${e.clientX + 12}px, \${e.clientY + 12}px, 0)\`; const sel = getBestSelector(target); tooltip.innerText = \`🔍 Extract: \${sel}\`; }
+      if (tooltip) { tooltip.style.display = "block"; tooltip.style.transform = \`translate3d(\${e.clientX + 12}px, \${e.clientY + 12}px, 0)\`; const sel = getBestSelector(target); tooltip.innerText = \`🔍 Extract: \${sel}\${frameTag}\`; }
     }
     hoveredEl.style.cursor = "crosshair";
   }, true);
@@ -79,14 +76,56 @@ export const INJECTED_DOM_EVENTS_SRC = `
     if (tooltip) tooltip.style.display = "none";
   }, true);
 
+  document.addEventListener('keydown', (e) => {
+    if (e.key === "Escape" && (isPointerMode || isExtractMode || isListExtractMode || isAssertMode)) {
+      isPointerMode = false; isExtractMode = false; isListExtractMode = false; isAssertMode = false;
+      btnPick?.classList.remove("active-pick"); btnExtract?.classList.remove("active");
+      btnList?.classList.remove("active"); btnAssert?.classList.remove("active-assert");
+      if (hoveredEl) { hoveredEl.style.outline = ""; hoveredEl.style.cursor = ""; hoveredEl = null; }
+      if (tooltip) tooltip.style.display = "none";
+      if (typeof broadcastModes === "function") broadcastModes();
+      showToast("Pointer inspection exited");
+    }
+  }, true);
+
   document.addEventListener('click', (e) => {
     const target = e.target;
     if (!target || target.closest("#__cdp_recorder_hud__")) return;
     if (target.tagName && (target.tagName.toLowerCase() === "iframe" || target.tagName.toLowerCase() === "frame")) return;
     if (flowState.isPaused) { e.preventDefault(); showToast("⏸️ Action ignored (recording is paused)", true); return; }
+
+    const isPointer = isPointerMode;
     const isExtract = isExtractMode || e.shiftKey;
     const isList = isListExtractMode;
     const isAssert = isAssertMode || e.altKey;
+
+    if (isPointer) {
+      e.preventDefault(); e.stopPropagation();
+      const candInfo = generateSelectorCandidates(target);
+      const frameInfo = getIframeContextInfo();
+      const payload = {
+        candidates: candInfo.candidates,
+        recommended: candInfo.recommended,
+        text: candInfo.text,
+        tagName: candInfo.tagName,
+        value: target.value || undefined,
+        frame: frameInfo.frameIdentifier
+      };
+
+      if (!isTopWindow && window.top) {
+        try { window.top.postMessage({ type: "__cdp_child_pointer_pick__", payload }, "*"); } catch {}
+      } else {
+        openStepBuilderModal(payload);
+      }
+
+      isPointerMode = false;
+      btnPick?.classList.remove("active-pick");
+      if (hoveredEl) { hoveredEl.style.outline = ""; hoveredEl.style.cursor = ""; hoveredEl = null; }
+      if (tooltip) tooltip.style.display = "none";
+      if (typeof broadcastModes === "function") broadcastModes();
+      return;
+    }
+
     const selector = getBestSelector(target);
     if (!selector) return;
 
