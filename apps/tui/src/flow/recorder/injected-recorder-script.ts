@@ -92,10 +92,16 @@ export const INJECTED_ADVANCED_RECORDER_SCRIPT = `
 
   const hudContainer = document.createElement("div");
   hudContainer.id = "__cdp_recorder_hud__";
-  hudContainer.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:2147483647;margin:0;padding:0;font-family:system-ui,-apple-system,sans-serif;";
+  hudContainer.style.cssText = "all:initial;position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:2147483647;margin:0;padding:0;font-family:system-ui,-apple-system,sans-serif;";
 
   const shadow = hudContainer.attachShadow({ mode: "open" });
-  shadow.innerHTML = ${JSON.stringify(`<style>${HUD_STYLES}</style>${HUD_HTML}`)};
+  shadow.innerHTML = ${JSON.stringify(`<style>:host { all: initial; } ${HUD_STYLES}</style>${HUD_HTML}`)};
+
+  for (const evName of ["click", "pointerdown", "mousedown", "mouseup", "keydown", "keyup"]) {
+    hudContainer.addEventListener(evName, (e) => {
+      e.stopPropagation();
+    });
+  }
 
   if (!isTopWindow) {
     const barEl = shadow.getElementById("bar");
@@ -191,11 +197,26 @@ export const INJECTED_ADVANCED_RECORDER_SCRIPT = `
 
   ${INJECTED_EVENT_RECORDER_SRC}
 
+  let hudObserver = null;
+  function ensureObserver() {
+    if (!hudObserver && (document.documentElement || document.body)) {
+      try {
+        hudObserver = new MutationObserver(() => {
+          if (!document.getElementById("__cdp_recorder_hud__")) {
+            mountHud();
+          }
+        });
+        hudObserver.observe(document.documentElement || document.body, { childList: true, subtree: true });
+      } catch {}
+    }
+  }
+
   function mountHud() {
     if (!document.getElementById("__cdp_recorder_hud__") && (document.body || document.documentElement)) {
       (document.body || document.documentElement).appendChild(hudContainer);
       if (isTopWindow) updateBadge();
     }
+    ensureObserver();
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mountHud);
   else mountHud();
