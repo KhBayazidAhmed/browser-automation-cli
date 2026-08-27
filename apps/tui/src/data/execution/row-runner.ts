@@ -15,6 +15,11 @@ import type { RowExecutionOptions, RowExecutionRecord, RowExecutionSummary } fro
 import { recordWriteback } from "./writeback.js";
 
 function workflowId(flow: FlowDefinition): string {
+	const name = (flow.name || "")
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9]/gi, "_");
+	if (name) return name.slice(0, 32);
 	return createHash("sha256").update(JSON.stringify(flow)).digest("hex").slice(0, 16);
 }
 
@@ -60,7 +65,7 @@ export class RowWorkflowRunner {
 		const started = performance.now();
 		const runId = randomUUID();
 		const id = workflowId(this.flow);
-		const state = new ExecutionStateStore(join(OUTPUT_DIR, `.automation-state-${id}.json`));
+		const state = new ExecutionStateStore(join(OUTPUT_DIR, `.automation-state-${id}.sqlite`));
 		await state.load();
 		await this.provider.connect();
 		try {
