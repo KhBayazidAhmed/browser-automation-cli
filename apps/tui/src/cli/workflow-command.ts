@@ -168,7 +168,11 @@ export async function handleWorkflowCommand(
 ): Promise<number | null> {
 	if (args[0] === "workflow" && args[1] === "run" && args[2])
 		return runDataWorkflow(args[2], args, 3, profile);
-	if (args[0] === "flow" && args[1] && flagValue(args, "--data"))
+	if (
+		(args[0] === "flow" || args[0] === "run") &&
+		args[1] &&
+		(flagValue(args, "--data") || flagValue(args, "--data-source"))
+	)
 		return runDataWorkflow(args[1], args, 2, profile);
 	return null;
 }
