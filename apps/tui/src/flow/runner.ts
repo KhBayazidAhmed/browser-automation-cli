@@ -115,51 +115,117 @@ export class FlowRunner {
 
 				logStepStart(i + 1, validatedFlow.steps.length, stepName);
 
-				try {
-					const extracted = await executeStep(
-						step,
-						page,
-						mergeVariableScopes({
-							...variableScopes,
-							step: {
-								...variableScopes.step,
-								...step.variables,
-								...extractedData,
-							},
-						}),
-					);
+				if (step.condition) {
+					const cond = step.condition;
+					let targetExists = false;
+					try {
+						const condSelector = cond.exists || cond.selector;
+						const condText = cond.text;
+						if (condSelector || condText) {
+							targetExists = await page.waitForSelector(condSelector, {
+								text: condText,
+								timeout: 400,
+							});
+						}
+					} catch {
+						targetExists = false;
+					}
+					const matchesCondition = cond.not ? !targetExists : targetExists;
+					if (!matchesCondition) {
+						console.log("  ↷ \x1b[2mSkipped (condition not met)\x1b[0m");
+						stepResults.push({
+							stepIndex: i + 1,
+							name: stepName,
+							action: step.action,
+							durationMs: 0,
+							status: "skipped",
+							success: true,
+						});
+						continue;
+					}
+				}
 
+				const maxAttempts = step.retry?.maxAttempts ?? 1;
+				const backoffMs = step.retry?.backoffMs ?? 500;
+				let lastError: unknown;
+				let stepSucceeded = false;
+				let extractedResult: unknown;
+
+				for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+					try {
+						extractedResult = await executeStep(
+							step,
+							page,
+							mergeVariableScopes({
+								...variableScopes,
+								step: {
+									...variableScopes.step,
+									...step.variables,
+									...extractedData,
+								},
+							}),
+						);
+						stepSucceeded = true;
+						break;
+					} catch (err: unknown) {
+						lastError = err;
+						if (attempt < maxAttempts) {
+							console.log(
+								`  ↻ \x1b[33mRetry ${attempt}/${maxAttempts} for step ${i + 1} (${stepName})...\x1b[0m`,
+							);
+							await new Promise((r) => setTimeout(r, backoffMs));
+						}
+					}
+				}
+
+				const durationMs = Math.round(performance.now() - stepStart);
+
+				if (stepSucceeded) {
 					const s = step as Record<string, unknown>;
-					if (extracted !== undefined && "as" in step && s.as) {
-						extractedData[s.as as string] = extracted;
+					if (extractedResult !== undefined && "as" in step && s.as) {
+						extractedData[s.as as string] = extractedResult;
 					}
 
-					const durationMs = Math.round(performance.now() - stepStart);
 					stepResults.push({
 						stepIndex: i + 1,
 						name: stepName,
 						action: step.action,
 						durationMs,
 						success: true,
-						extracted,
+						status: "pass",
+						extracted: extractedResult,
 					});
 
 					logStepPass(durationMs);
-				} catch (err: unknown) {
-					const durationMs = Math.round(performance.now() - stepStart);
-					const rawError = err instanceof Error ? err.message : String(err);
+				} else {
+					const rawError = lastError instanceof Error ? lastError.message : String(lastError);
 					const errorMsg = redactSensitive(rawError, redactValues);
-					stepResults.push({
-						stepIndex: i + 1,
-						name: stepName,
-						action: step.action,
-						durationMs,
-						success: false,
-						error: errorMsg,
-					});
 
-					logStepFail(errorMsg);
-					throw new Error(`Flow aborted at step ${i + 1} (${stepName}): ${errorMsg}`);
+					if (step.optional || step.continueOnError) {
+						console.log(`  ⚠️ \x1b[33mIgnored failure (optional step): ${errorMsg}\x1b[0m`);
+						stepResults.push({
+							stepIndex: i + 1,
+							name: stepName,
+							action: step.action,
+							durationMs,
+							success: false,
+							status: "skipped",
+							error: errorMsg,
+						});
+					} else {
+						stepResults.push({
+							stepIndex: i + 1,
+							name: stepName,
+							action: step.action,
+							durationMs,
+							success: false,
+							status: "fail",
+							error: errorMsg,
+						});
+
+						logStepFail(errorMsg);
+						throw new Error(`Flow aborted at step ${i + 1} (${stepName}): ${errorMsg}`);
+					}
 				}
 			}
 

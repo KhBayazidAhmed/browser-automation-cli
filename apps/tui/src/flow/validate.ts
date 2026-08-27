@@ -145,6 +145,48 @@ export function parseFlowDefinition(value: unknown): FlowDefinition {
 		) {
 			throw new Error(`${label} has invalid "strictText"`);
 		}
+		assertOptionalBoolean(step, "optional", label);
+		assertOptionalBoolean(step, "continueOnError", label);
+		if (step.retry !== undefined) {
+			if (!step.retry || typeof step.retry !== "object" || Array.isArray(step.retry)) {
+				throw new Error(`${label} has non-object "retry"`);
+			}
+			const retry = step.retry as Record<string, unknown>;
+			if (
+				typeof retry.maxAttempts !== "number" ||
+				!Number.isInteger(retry.maxAttempts) ||
+				retry.maxAttempts <= 0
+			) {
+				throw new Error(`${label} "retry.maxAttempts" must be a positive integer`);
+			}
+			if (
+				retry.backoffMs !== undefined &&
+				(typeof retry.backoffMs !== "number" ||
+					!Number.isFinite(retry.backoffMs) ||
+					retry.backoffMs < 0)
+			) {
+				throw new Error(`${label} "retry.backoffMs" must be a non-negative finite number`);
+			}
+		}
+		if (step.condition !== undefined) {
+			if (!step.condition || typeof step.condition !== "object" || Array.isArray(step.condition)) {
+				throw new Error(`${label} has non-object "condition"`);
+			}
+			const condition = step.condition as Record<string, unknown>;
+			if (
+				condition.exists === undefined &&
+				condition.selector === undefined &&
+				condition.text === undefined
+			) {
+				throw new Error(
+					`${label} "condition" requires at least one of "exists", "selector", or "text"`,
+				);
+			}
+			assertOptionalString(condition, "exists", `${label} "condition"`);
+			assertOptionalString(condition, "selector", `${label} "condition"`);
+			assertOptionalString(condition, "text", `${label} "condition"`);
+			assertOptionalBoolean(condition, "not", `${label} "condition"`);
+		}
 		assertOptionalTimeout(step, label);
 
 		switch (step.action as FlowActionType) {
