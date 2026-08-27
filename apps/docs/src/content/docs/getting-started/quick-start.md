@@ -15,9 +15,28 @@ Before you begin, ensure you have:
 
 ---
 
-## 📦 Step 1: Install Dependencies
+## 📦 Step 1: Install Bflow
 
-Clone the repository and install dependencies with Bun:
+Choose your preferred installation method:
+
+### Option A: Standalone Binary (Recommended)
+
+macOS / Linux:
+```bash
+curl -fsSL https://browser-automation-cli.bixbd.com/install.sh | sh
+```
+
+Windows PowerShell:
+```powershell
+irm https://browser-automation-cli.bixbd.com/install.ps1 | iex
+```
+
+Verify your installation:
+```bash
+bflow --version
+```
+
+### Option B: Monorepo Source Checkout
 
 ```bash
 git clone https://github.com/KhBayazidAhmed/browser-automation-cli.git
@@ -29,15 +48,17 @@ bun install
 
 ## ⚡ Step 2: Launch the Studio (The Easy Way)
 
-The simplest and most user-friendly way to use the CLI is the **Interactive Terminal Studio**:
+The simplest way to use Bflow is the **Interactive Terminal Studio**:
 
 ```bash
+# Standalone CLI
+bflow
+
+# Monorepo development
 bun cli
 ```
 
-`bun dev` starts every development workspace in the monorepo. Use `bun cli` when you only want the automation studio.
-
-You will see an interactive prompt:
+You will see the interactive prompt:
 
 ```text
 ┌  ⚡ Browser Automation Studio
@@ -60,12 +81,16 @@ Use your arrow keys and press **Enter** to choose an action.
 To visually record a new automation flow in Chrome:
 
 ```bash
+# Standalone CLI
+bflow record workflows/my-first-flow.json https://news.ycombinator.com
+
+# Monorepo development
 bun record workflows/my-first-flow.json https://news.ycombinator.com
 ```
 
-1. Chrome will open with the **In-Page Floating HUD Toolbar**.
-2. Click on elements, type into search boxes, or press **🔍 Extract** / **📊 List** to extract data.
-3. Click **🛑 Finish** (or press `f` / `Enter` in the terminal) to save your workflow to `workflows/my-first-flow.json`.
+1. Chrome opens with the **In-Page Floating HUD Toolbar**.
+2. Click elements, type into inputs, or click **Add step ▾** to extract values (`Shift+Click`) or assert text (`Alt+Click`).
+3. Click **Finish** on the HUD (or press `f` / `Enter` in your terminal) to save the workflow to `workflows/my-first-flow.json`.
 
 ---
 
@@ -74,20 +99,26 @@ bun record workflows/my-first-flow.json https://news.ycombinator.com
 Execute the recorded workflow anytime from the command line:
 
 ```bash
-# Run headless (fast, in the background)
-bun flow workflows/my-first-flow.json
+# Headless mode (fast, background execution)
+bflow flow workflows/my-first-flow.json
+# (Monorepo: bun flow workflows/my-first-flow.json)
 
-# Run headed (watch Chrome execute live in a window)
-bun flow workflows/my-first-flow.json --headed
+# Headed mode (visible Chrome window)
+bflow flow workflows/my-first-flow.json --headed
+# (Monorepo: bun flow workflows/my-first-flow.json --headed)
 ```
 
 ---
 
 ## 🛠️ Step 5: Try the Interactive Browser REPL
 
-Need to inspect a webpage or test CDP commands interactively? Launch the REPL:
+Inspect a webpage or test CDP commands interactively:
 
 ```bash
+# Standalone CLI
+bflow repl
+
+# Monorepo development
 bun repl
 ```
 
@@ -100,6 +131,22 @@ cdp> screenshot output/example.png
 ✓ Saved screenshot (18.4 KB) to output/example.png
 cdp> exit
 ```
+
+---
+
+## 🤖 Step 6: Connect an AI Agent via MCP
+
+Serve persistent workflow-authoring tools to Claude Code or Codex:
+
+```bash
+# Standalone CLI
+bflow mcp
+
+# Monorepo development
+bun mcp
+```
+
+The AI agent can observe the page, perform steps, verify postconditions, and publish deterministic workflows that replay later without an AI model!
 
 ---
 
