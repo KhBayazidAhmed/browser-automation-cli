@@ -52,11 +52,11 @@ function requireInput(args: string[], index: number, usage: string): string {
 export async function handleDataCommand(args: string[]): Promise<boolean> {
 	if (args[0] !== "data") return false;
 	registerGoogleSheetsProvider();
-	if (args[1] === "providers") {
+	if (args[1] === "providers" || args[1] === "list" || !args[1]) {
 		console.log(dataProviderRegistry.list().join("\n"));
 		return true;
 	}
-	throw new Error("Usage: data providers");
+	throw new Error("Usage: data providers | data list");
 }
 
 export async function handleSheetsCommand(args: string[]): Promise<boolean> {

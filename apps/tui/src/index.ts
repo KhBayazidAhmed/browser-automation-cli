@@ -20,17 +20,29 @@ async function main() {
 	const isRepl = args[0] === "repl";
 	const isMcp = args[0] === "mcp";
 	const isRecord = args[0] === "record";
-	const isFlow = args[0] === "flow" && Boolean(args[1]);
-	const isWorkflow = args[0] === "workflow" && args[1] === "run" && Boolean(args[2]);
-	const isProfilesList = args[0] === "profiles" || (args[0] === "profile" && args[1] === "list");
-	const isTasksList = args[0] === "tasks" || (args[0] === "task" && args[1] === "list");
-	const isTaskRun = args[0] === "task" || args[0] === "run";
+	const isRun =
+		(args[0] === "run" || args[0] === "flow") &&
+		Boolean(args[1]) &&
+		!flagValue(args, "--data") &&
+		!flagValue(args, "--data-source");
+	const isWorkflow =
+		(args[0] === "workflow" && args[1] === "run" && Boolean(args[2])) ||
+		((args[0] === "run" || args[0] === "flow") &&
+			Boolean(args[1]) &&
+			Boolean(flagValue(args, "--data") || flagValue(args, "--data-source")));
+	const isProfilesList =
+		args[0] === "profiles" || (args[0] === "profile" && (args[1] === "list" || !args[1]));
+	const isTasksList =
+		args[0] === "tasks" || (args[0] === "task" && (args[1] === "list" || !args[1]));
+	const isTaskRun =
+		(args[0] === "task" && args[1] && args[1] !== "list") ||
+		(args[0] === "task" && args[1] === "run" && Boolean(args[2]));
 	const isHeaded = args.includes("--headed") || args.includes("--headless=false");
 	const directUrl = flagValue(args, "--url");
 	const screenshotPath = flagValue(args, "--screenshot");
 	const needsBrowserProfile =
 		isRecord ||
-		isFlow ||
+		isRun ||
 		isWorkflow ||
 		isRepl ||
 		Boolean(directUrl) ||
@@ -69,7 +81,7 @@ async function main() {
 		console.log(
 			"\n" +
 				"═".repeat(67) +
-				`\nUse in any command: \x1b[32m${CLI_NAME} <record|flow|task|repl> --profile=<id>\x1b[0m\n`,
+				`\nUse in any command: \x1b[32m${CLI_NAME} <record|run|task|repl> --profile=<id>\x1b[0m\n`,
 		);
 		process.exit(0);
 	}
@@ -87,7 +99,7 @@ async function main() {
 		process.exit(0);
 	}
 
-	if (isFlow && args[1]) {
+	if (isRun && args[1]) {
 		const filePath = resolveTuiPath(args[1]);
 		const file = Bun.file(filePath);
 		if (!(await file.exists())) {
@@ -131,13 +143,17 @@ async function main() {
 		process.exit(0);
 	}
 
-	if (isTaskRun && args[1] && args[1] !== "list") {
-		const result = await taskRegistry.runTask(args[1], parseCliKeyValues(args, 2), {
-			headless: !isHeaded,
-			userDataDir: profileConfig.userDataDir,
-			profileDirectory: profileConfig.profileDirectory,
-		});
-		process.exit(result.success ? 0 : 1);
+	if (isTaskRun) {
+		const taskId = args[1] === "run" && args[2] ? args[2] : args[1];
+		const paramStartIndex = args[1] === "run" ? 3 : 2;
+		if (taskId && taskId !== "list") {
+			const result = await taskRegistry.runTask(taskId, parseCliKeyValues(args, paramStartIndex), {
+				headless: !isHeaded,
+				userDataDir: profileConfig.userDataDir,
+				profileDirectory: profileConfig.profileDirectory,
+			});
+			process.exit(result.success ? 0 : 1);
+		}
 	}
 
 	if (args[0] === "cleanup") {

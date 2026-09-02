@@ -13,19 +13,22 @@ export function printUsage(): void {
 Bflow — Browser Workflow Automation
 
   ${CLI_NAME}                              Open the interactive wizard
+  ${CLI_NAME} run <file> [--k=v]           Run a workflow (supports --data=<uri>)
   ${CLI_NAME} record [file] [url]          Record a workflow
-  ${CLI_NAME} flow <file> [--k=v]          Run a workflow
-  ${CLI_NAME} workflow run <file> --data=<provider-uri>
+  ${CLI_NAME} data providers|list          List installed data providers
   ${CLI_NAME} sheets <command>             Manage Google Sheets data
-  ${CLI_NAME} data providers               List installed data providers
-  ${CLI_NAME} tasks                        List tasks
-  ${CLI_NAME} task <id> [--k=v]            Run a task
+  ${CLI_NAME} tasks|task list              List tasks
+  ${CLI_NAME} task [run] <id> [--k=v]      Run a task
   ${CLI_NAME} profiles                     List browser profiles
   ${CLI_NAME} repl                         Open the interactive REPL
   ${CLI_NAME} mcp                          Serve agent authoring tools over MCP stdio
   ${CLI_NAME} cleanup                      Clean managed orphan browsers
   ${CLI_NAME} --url <url> [--screenshot <path>]
   ${CLI_NAME} --version                    Print the installed version
+
+Aliases:
+  ${CLI_NAME} flow <file>                  Alias for "${CLI_NAME} run <file>"
+  ${CLI_NAME} workflow run <file>          Alias for "${CLI_NAME} run <file> --data=..."
 `);
 }
 
