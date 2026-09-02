@@ -5,9 +5,11 @@ description: Full reference for declarative JSON workflow structure, step action
 
 # 📄 Workflow JSON Schema Reference
 
-Every recorded or custom workflow in Bflow is defined as a JSON object adhering to the schema below.
+Every recorded or custom workflow in Bflow is defined as a clean, version-controllable JSON document adhering to the schema below.
 
-## 🧱 Top-Level Structure
+---
+
+## 🧱 Top-Level Workflow Structure
 
 ```json
 {
@@ -23,9 +25,9 @@ Every recorded or custom workflow in Bflow is defined as a JSON object adhering 
   "data": {
     "source": "users",
     "results": {
-      "confirmation": "data.confirmationText"
+      "confirmation_code": "data.confirmationCode"
     },
-    "sensitiveColumns": ["password"]
+    "sensitiveColumns": ["password", "ssn"]
   },
   "dataSources": {
     "users": {
@@ -37,234 +39,226 @@ Every recorded or custom workflow in Bflow is defined as a JSON object adhering 
 }
 ```
 
-`data` and `dataSources` are optional. When present, `bun workflow run` streams rows from the logical source and makes fields available through `{{row.column}}`. Provider details never appear in individual workflow steps.
-
-| Field | Required | Description |
-| :--- | :--- | :--- |
-| `name` | Yes | Human-readable workflow name. |
-| `steps` | Yes | Ordered array of deterministic step objects. |
-| `description`, `version` | No | Workflow metadata; `name` plus `version` also identifies resumable row state. |
-| `headless` | No | Default browser visibility for normal replay. CLI flags can override it. |
-| `blockMedia` | No | Enable the workflow's media-blocking behavior. |
-| `variables` | No | Workflow-level interpolation defaults. |
-| `data.source` | With configured data | Logical key selected from `dataSources`. |
-| `data.results` | No | Maps destination columns to paths in each `FlowExecutionResult`. |
-| `data.sensitiveColumns` | No | Additional row columns whose values must be redacted. |
-| `dataSources` | No | Named provider configurations with `provider`, `uri`, optional `account`, and provider `options`. |
+| Field | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `name` | String | Yes | Human-readable workflow name. |
+| `steps` | Step[] | Yes | Ordered array of deterministic step objects. |
+| `description` | String | No | Workflow summary and purpose. |
+| `version` | String | No | Semantic version string (used with `name` to key state checkpoints). |
+| `headless` | Boolean | No | Default browser execution mode (`true` by default). |
+| `blockMedia` | Boolean | No | Automatically blocks images, media, and fonts when `true`. |
+| `variables` | Record<string, any> | No | Workflow-level variable defaults. |
+| `data` | Object | No | Data execution config (`source`, `results`, `sensitiveColumns`). |
+| `dataSources` | Record<string, DataSource> | No | Named provider configurations (`provider`, `uri`, `account`, `options`). |
 
 ---
 
-## ⚡ Supported Step Actions
+## ⚡ Complete Step Action Catalog
 
 ### 1. `goto` — Navigate to URL
 ```json
 {
+  "name": "Navigate to target page",
   "action": "goto",
   "url": "https://example.com",
   "waitUntil": "domcontentloaded",
   "timeout": 30000
 }
 ```
-
-`waitUntil` accepts `load`, `domcontentloaded`, or `networkidle`.
+- `waitUntil`: `"load"`, `"domcontentloaded"`, or `"networkidle"`.
+- `timeout`: Navigation timeout in ms (default: `30000`).
 
 ---
 
 ### 2. `click` — Click Element
-Locates and clicks an element via CSS selector or strict human text.
 ```json
 {
+  "name": "Click submit button",
   "action": "click",
-  "selector": "button.submit",
+  "selector": "button[type='submit']",
   "timeout": 5000
 }
 ```
-
-Instead of `selector`, use a text matcher such as `"text": "Sign In"` with `"strictText": true`.
+- Supports human text targeting: `"text": "Sign In"`, `"strictText": true`, `"ignoreCase": true`.
+- `frame`: Target iframe context.
 
 ---
 
-### 3. `type` — Enter Text into Input
+### 3. `type` — Type Text into Input
 ```json
 {
+  "name": "Enter account email",
   "action": "type",
-  "selector": "input[name='username']",
-  "text": "{{userEmail}}",
+  "selector": "input#email",
+  "text": "{{row.email}}",
   "clearFirst": true,
   "timeout": 5000
 }
 ```
+- `clearFirst`: Automatically selects and erases existing text before typing (default: `true`).
 
 ---
 
-### 4. `extract` — Extract Single Value
-Extracts text or attribute from an element into a workflow variable.
+### 4. `extract` — Extract Single Field or Attribute
 ```json
 {
+  "name": "Extract article headline",
   "action": "extract",
-  "selector": "h1.title",
-  "as": "pageTitle",
+  "selector": "h1.entry-title",
+  "as": "pageHeadline",
   "attribute": "text",
-  "all": false
-}
-```
-
-Use an attribute name such as `href`, `src`, or `value`; `text`/`innerText` extract visible content. Set `all` to return every match.
-
----
-
-### 5. `extractMultiple` — Extract Lists / Grids
-Extracts repeating structures (cards, table rows, lists) into an array of structured JSON objects.
-```json
-{
-  "action": "extractMultiple",
-  "containerSelector": ".product-card",
-  "as": "products",
-  "limit": 20,
-  "fields": {
-    "title": "h3.product-title",
-    "price": ".price-tag",
-    "url": "a.product-link@href"
-  }
-}
-```
-
----
-
-### 6. `assert` — Assert State & Content
-Verifies that text or attribute conditions match expectations.
-```json
-{
-  "action": "assert",
-  "selector": ".status-message",
-  "contains": "Welcome",
-  "ignoreCase": true,
+  "all": false,
   "timeout": 5000
 }
 ```
-
-Choose an assertion condition such as `text`, `strictText`, `equals`, `contains`, `startsWith`, `endsWith`, or regex `matches`. Set `attribute` when the assertion should inspect an element attribute instead of its text.
+- `attribute`: `"text"`, `"innerText"`, `"href"`, `"src"`, `"value"`, `"aria-label"`, or any HTML attribute.
+- `all`: When `true`, returns `string[]` for all matching elements.
 
 ---
 
-### 7. `wait` / `waitForSelector` — Timing & Delays
-Fixed duration:
-
+### 5. `extractMultiple` — Extract Structured Lists / Cards
 ```json
 {
+  "name": "Extract catalog products",
+  "action": "extractMultiple",
+  "containerSelector": ".product-item",
+  "as": "products",
+  "limit": 20,
+  "fields": {
+    "title": "h3.title",
+    "price": ".price",
+    "url": "a.product-link@href",
+    "thumbnail": "img.photo@src"
+  },
+  "filterText": "In Stock",
+  "filterIgnoreCase": true
+}
+```
+- Use `@attribute` syntax in `fields` (e.g. `a@href`, `img@src`) to extract attributes.
+
+---
+
+### 6. `assert` — Verify DOM State & Content
+```json
+{
+  "name": "Verify order confirmation",
+  "action": "assert",
+  "selector": ".confirmation-msg",
+  "text": "Order Placed",
+  "contains": "Order Placed",
+  "ignoreCase": true,
+  "timeout": 8000
+}
+```
+- Match operators: `equals`, `contains`, `startsWith`, `endsWith`, `matches` (regex), `strictText`.
+
+---
+
+### 7. `wait` / `waitForSelector` — Delays & Synchronization
+Fixed delay:
+```json
+{
+  "name": "Pause 2 seconds",
   "action": "wait",
   "durationMs": 2000
 }
 ```
-
-Wait for a selector or text matcher:
-
+Wait for element or text:
 ```json
 {
+  "name": "Wait for dashboard widget",
   "action": "waitForSelector",
-  "selector": "#dashboard-loaded",
-  "timeout": 10000
+  "selector": "#dashboard-ready",
+  "timeout": 15000
 }
 ```
 
 ---
 
-### 8. `screenshot` — Capture Visual Artifact
+### 8. `screenshot` — Capture Viewport or Element
 ```json
 {
+  "name": "Capture confirmation screenshot",
   "action": "screenshot",
-  "path": "output/dashboard.png",
-  "selector": "#dashboard",
+  "path": "{{outputDir}}/receipt.png",
   "fullPage": true
 }
 ```
-
-When `selector` is present, only that element is captured and `fullPage` is ignored.
+- `selector`: When specified, captures only the bounding box of that element.
 
 ---
 
 ### 9. `pdf` — Export Page to PDF
 ```json
 {
+  "name": "Export invoice PDF",
   "action": "pdf",
-  "path": "output/report.pdf"
+  "path": "{{outputDir}}/invoice.pdf"
 }
 ```
 
 ---
 
-### 10. `block` — Block Resource Requests
-Block heavy network resources (images, stylesheets, fonts, media, scripts) to optimize performance.
+### 10. `block` — Block Network Requests
 ```json
 {
+  "name": "Block heavy media assets",
   "action": "block",
-  "types": ["image", "font", "media"]
+  "types": ["image", "media", "font"]
 }
 ```
+- Supported types: `image`, `media`, `font`, `stylesheet`, `script`.
 
 ---
 
-### 11. `eval` — Execute JavaScript
-Run arbitrary JavaScript in the page context and optionally store the return value.
+### 11. `eval` — Execute In-Page JavaScript
 ```json
 {
+  "name": "Calculate total rows",
   "action": "eval",
-  "script": "document.querySelectorAll('a').length",
-  "as": "totalLinkCount"
+  "script": "document.querySelectorAll('table.data tr').length",
+  "as": "tableRowCount"
 }
 ```
 
 ---
 
-### 12. `save` — Save Extracted Data
-Write all extracted variables and multiple extractions to disk as JSON or CSV.
+### 12. `save` — Export Extracted Variables to File
 ```json
 {
+  "name": "Export scraped dataset",
   "action": "save",
-  "path": "output/results.json",
+  "path": "output/dataset.json",
   "format": "json"
 }
 ```
-
-`format` accepts `json` or `csv`.
+- `format`: `"json"` or `"csv"`.
 
 ---
 
 ## 🎯 Human-Centric Locator Attributes
 
-Element targeting steps (`click`, `type`, `waitForSelector`, `extract`, and `assert`) support human-centric matching properties. Applicable fields vary slightly by action:
+Targeting steps (`click`, `type`, `waitForSelector`, `extract`, and `assert`) support expressive locator properties:
 
 | Property | Type | Description |
 | :--- | :--- | :--- |
-| `text` | String | Substring or strict text match. |
-| `strictText` | Boolean | Forces exact string equality. |
+| `selector` | String | Standard CSS selector (`#id`, `.class`, `button[name='btn']`). |
+| `text` | String | Human-visible text or aria-label matching. |
+| `strictText` | Boolean \| String | Forces exact string equality. |
 | `ignoreCase` | Boolean | Case-insensitive matching. |
-| `regex` | String | Regular expression pattern. |
-| `startsWith` | String | Match elements starting with prefix. |
-| `endsWith` | String | Match elements ending with suffix. |
-| `normalizeWhitespace` | Boolean | Collapses multiple spaces and newlines (default `true`). |
+| `regex` | String | Regular expression pattern matching. |
+| `startsWith` | String | Prefix matching. |
+| `endsWith` | String | Suffix matching. |
+| `normalizeWhitespace` | Boolean | Collapses multiple whitespace chars (default `true`). |
+| `frame` | String | Child iframe name, index, ID, or URL substring. |
 
-Use `frame` on a step to target a matching child frame. A step can also declare a `variables` object for low-precedence, step-local defaults.
+---
 
-## 🔄 Variable Interpolation
+## 🔄 Variable Interpolation & Transformations
 
-Strings can reference workflow values, CLI overrides, extracted values, row columns, nested paths, and environment variables:
+Workflow steps support template strings: `{{variableName}}` or `{{row.columnName}}`.
+- **Precedence**: System > CLI Overrides > Workflow Variables > Row Data > Step-Local Defaults.
+- **Pipes**: `{{row.email | trim | lowercase}}`.
+- **Environment Secrets**: `{{env.API_KEY}}`.
+- **Sensitive Redaction**: Fields in `data.sensitiveColumns` are masked during screenshots and redacted from summaries.
 
-```json
-{
-  "action": "type",
-  "selector": "#email",
-  "text": "{{row.contact.email | trim | lowercase}}",
-  "variables": {
-    "fallbackDomain": "example.com"
-  }
-}
-```
-
-Use `{{env.ACCOUNT_PASSWORD}}` for secrets. Supported transformations are `trim`, `lowercase`, `uppercase`, `replace`, `default`, `split`, `join`, `uuid`, `random`, `date`, `formatDate`, `json`, and `urlEncode`. Transformations are evaluated left-to-right.
-
-Variable precedence from highest to lowest is system, CLI, workflow, row, then step-local values.
-
-## 🔐 Data-Driven Artifact Safety
-
-During row execution, columns detected as sensitive—or named in `data.sensitiveColumns`—are redacted from errors, summaries, saved JSON/CSV data, screenshots, and PDFs. Screenshot/PDF masking is temporary and restored immediately after capture. Sensitive workflow inputs should remain environment references rather than literal workflow variables.

@@ -5,84 +5,117 @@ description: Extract single text fields, attributes, and repeating card/table gr
 
 # 📊 Smart Data & List Extraction
 
-**Bflow** makes scraping web data visual and effortless. Whether you want to grab a single product title, capture an image URL, or scrape 100 rows from a paginated table, you can do it with point-and-click ease.
+**Bflow** makes extracting structured web data visual and effortless. Whether you want to grab a single product title, capture an image URL, or scrape hundreds of rows from a catalog or paginated table, you can do it with point-and-click ease.
 
 ---
 
-## 🔍 Single Value & Attribute Extraction
+## 🔍 Single Value & Attribute Extraction (`extract`)
 
 To extract a single element's value:
 
-1. During a visual recording session (`bun record ...`), press the **🔍 Extract** button on the floating HUD (or hold `Shift` and click any element on the page).
-2. An in-page modal will appear:
-   - **Variable Name**: Enter the identifier where the data should be stored (e.g. `pageTitle`, `pricingPlan`).
-   - **Target Attribute**: Choose what data to extract:
-     - `text` / `innerText` — The visible text inside the element.
-     - `href` — The destination URL of a link (`<a>`).
-     - `src` — The image source URL (`<img>`).
-     - `value` — Current input value (`<input>`, `<textarea>`).
-     - `alt` / `title` / `aria-label` — Accessibility attributes.
-   - **Extract All Matching**: Check this box if you want an array of strings from all matching elements.
-3. Click **Save Extraction**.
+1. During a visual recording session (`bflow record ...` / `bun record ...`), click **Add step ▾ → Extract value** on the floating HUD (or hold `Shift` and click any element on the page).
+2. Enter the target variable name (e.g. `pageTitle`, `pricingPlan`).
+3. The recorder automatically captures the element text or attribute.
+
+### Step Schema & Options
 
 ```json
 {
+  "name": "Extract article title",
   "action": "extract",
   "selector": "h1.product-title",
   "as": "mainHeading",
-  "attribute": "text"
+  "attribute": "text",
+  "all": false,
+  "timeout": 5000
 }
 ```
 
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `selector` | `string` | CSS selector or human text locator. |
+| `as` | `string` | Variable name to store the extracted result. |
+| `attribute` | `string` | Target attribute: `text` (default), `innerText`, `href`, `src`, `value`, `aria-label`, etc. |
+| `all` | `boolean` | When `true`, returns an array of strings (`string[]`) for every matching element on the page. |
+| `frame` | `string` | Optional child iframe identifier. |
+| `timeout` | `number` | Maximum time to wait for the element to appear in milliseconds. |
+
 ---
 
-## 📈 Smart List & Repeating Grid Extraction
+## 📈 Smart List & Repeating Grid Extraction (`extractMultiple`)
 
-Extracting entire catalogs, product lists, or data tables is traditionally tedious. With Bflow's **Smart Pattern Detector**, you only need to select **one** card or row.
+Extracting entire product catalogs, search result feeds, or data tables is traditionally tedious. With Bflow's **Smart Pattern Detector**, you only need to select **one** card or row.
 
 ### How It Works
 
-1. Click the **📊 List** button on the in-page HUD.
+1. Click **Add step ▾ → Extract list** on the in-page HUD.
 2. Hover over any repeating card or table row — the recorder highlights similar sibling elements in real time.
-3. Click the item. The modal opens showing detected repeating fields:
-   - **Container Selector**: Auto-detected common container (e.g. `.athing`, `.product-card`, `tr.row`).
-   - **Output Variable**: Array name (e.g. `topStories`, `products`).
-   - **Limit**: Max number of items to collect (e.g. `10`, `50`, or leave blank for all).
-   - **Field Mappings**: Map nested sub-selectors (e.g. `title` -> `.titleline > a`, `url` -> `.titleline > a@href`, `points` -> `.score`).
-4. Click **Confirm & Extract**.
+3. Click the item. The modal opens with auto-detected repeating fields:
+   - **Container Selector**: Auto-detected common container (e.g. `.product-card`, `tr.athing`, `li.result-item`).
+   - **Output Variable**: Array variable name (e.g. `products`, `topStories`).
+   - **Limit**: Maximum number of items to collect (e.g. `20`, `100`, or omit for all).
+   - **Field Mappings**: Map nested sub-selectors (e.g. `title` → `h3.title`, `link` → `a@href`, `image` → `img@src`).
+4. Click **Save Extraction**.
+
+### Step Schema & Options
 
 ```json
 {
+  "name": "Extract product list",
   "action": "extractMultiple",
   "containerSelector": ".product-card",
   "as": "products",
-  "limit": 20,
+  "limit": 25,
   "fields": {
     "title": "h3.title",
     "price": ".price-tag",
     "productUrl": "a.link@href",
-    "thumbnail": "img@src"
-  }
+    "thumbnail": "img.photo@src"
+  },
+  "filterText": "In Stock",
+  "filterIgnoreCase": true
 }
 ```
 
-> [!TIP]
-> Use the `@attribute` syntax in field mappings (e.g., `a@href` or `img@src`) to extract HTML attributes directly instead of inner text.
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `containerSelector` | `string` | Selector for repeating item containers. |
+| `as` | `string` | Output variable name storing the array of objects. |
+| `fields` | `Record<string, string>` | Key-value pairs mapping property names to CSS sub-selectors. Append `@attribute` (e.g. `a@href`, `img@src`) to extract attributes instead of inner text. |
+| `limit` | `number` | Maximum number of matching containers to extract. |
+| `filterText` | `string` | Substring filter: only containers containing this text are extracted. |
+| `filterIgnoreCase` | `boolean` | Case-insensitive matching for `filterText`. |
+| `filterRegex` | `string` | Regular expression filter for container text. |
+| `frame` | `string` | Optional child iframe identifier. |
 
 ---
 
-## 💾 Saving & Exporting Data
+## 💾 Saving & Exporting Data (`save`)
 
-At the end of your workflow, save the extracted data directly to disk in JSON or CSV format:
+At the end of your workflow, export extracted variables and lists to disk in JSON or CSV format:
 
 ```json
 {
+  "name": "Export scraped dataset",
   "action": "save",
-  "path": "output/scraped-products.json",
+  "path": "{{outputDir}}/scraped-products.json",
   "format": "json"
 }
 ```
 
-When the workflow runs, two output files are generated in `output/`:
-1. `flow-<name>-data.json` — A clean, structured JSON object containing only your extracted variables and arrays.
-2. `flow-<name>-result.json` — A complete execution audit log with step-by-step millisecond timings, statuses, and debug telemetry.
+To export as a spreadsheet-compatible CSV:
+
+```json
+{
+  "name": "Export scraped dataset as CSV",
+  "action": "save",
+  "path": "output/products.csv",
+  "format": "csv"
+}
+```
+
+---
+
+## 🔐 Sensitive Data Protection
+
+When running with external data or sensitive workflows, columns flagged as sensitive (such as passwords, social security numbers, or auth tokens) are automatically redacted from saved output files (`save`), execution traces, and audit logs.

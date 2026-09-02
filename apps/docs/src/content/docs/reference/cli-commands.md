@@ -5,106 +5,96 @@ description: Complete reference for all Bflow commands and flags.
 
 # 🛠️ CLI Commands & Flags Reference
 
-Bflow provides convenient shortcuts via `package.json` and direct CLI invocation.
+Bflow provides an extensive set of commands whether running the standalone `bflow` binary or developing within the monorepo using `bun`.
 
-## 📌 Main Commands
+---
 
-| Command | Shorthand / Alternative | Description |
+## 📌 Main Commands Matrix
+
+| Standalone CLI (`bflow`) | Monorepo (`bun`) | Description |
 | :--- | :--- | :--- |
-| `bun cli` | `bflow` | Launch the guided **Interactive Terminal Studio** wizard. |
-| `bun record <file.json> [url]` | `bflow record ...` | Start a visual live recording session in Chrome. |
-| `bun flow <file.json> [flags]` | `bflow flow ...` | Replay one declarative JSON workflow. |
-| `bun workflow run <file.json> [data flags]` | `bflow workflow run ...` | Execute one isolated workflow run per external data row. |
-| `bun sheets <command>` | `bflow sheets ...` | Authenticate, inspect, read, or update Google Sheets. |
-| `bun data providers` | `bflow data providers` | List registered external-data providers. |
-| `bun tasks` | `bflow tasks` | List all available built-in tasks and parameter descriptions. |
-| `bun task <id> [--param=val]` | `bflow task <id> ...` | Execute a built-in automation task. |
-| `bun apps/tui/src/index.ts profiles` | `bflow profiles` | List detected browser profiles and safe IDs. |
-| `bun repl` | `bflow repl` | Start an interactive Chrome DevTools Protocol command prompt. |
-| `bun mcp` | `bflow mcp` | Serve persistent workflow-authoring tools to Codex, Claude, or another MCP host over STDIO. |
-| `bun cleanup` | `bflow cleanup` | Terminate any lingering orphan Chrome processes. |
-| `bun run cli --version` | `bflow --version` | Print `development` for source runs or the embedded standalone release version. |
+| `bflow` | `bun cli` | Launch the guided **Interactive Terminal Studio** wizard. |
+| `bflow record <file> [url]` | `bun record <file> [url]` | Start a visual live recording session in Chrome with floating HUD. |
+| `bflow flow <file> [flags]` | `bun flow <file> [flags]` | Replay a declarative JSON workflow. |
+| `bflow workflow run <file> [flags]` | `bun workflow run <file> [flags]` | Execute an isolated workflow run per external data row. |
+| `bflow sheets <command>` | `bun sheets <command>` | Authenticate, inspect, read, or update Google Sheets. |
+| `bflow data providers` | `bun data providers` | List all registered external data providers. |
+| `bflow tasks` | `bun tasks` | List all available built-in programmatic automation tasks. |
+| `bflow task <id> [flags]` | `bun task <id> [flags]` | Execute a built-in automation task (e.g. `scrape-hn`, `site-audit`). |
+| `bflow profiles` | `bun apps/tui/src/index.ts profiles` | List detected Chrome browser profiles and their safe identifiers. |
+| `bflow repl [flags]` | `bun repl [flags]` | Start an interactive Chrome DevTools Protocol command prompt. |
+| `bflow mcp` | `bun mcp` | Launch the Model Context Protocol (MCP) server over STDIO for AI agent authoring. |
+| `bflow cleanup` | `bun cleanup` | Terminate any lingering orphan Chrome automation processes. |
+| `bflow --version` | `bun run cli --version` | Print the compiled release binary version or `development`. |
 
-`bun dev` is intentionally not an alias for `bun cli`: it starts all development workspaces in the monorepo.
+> [!NOTE]
+> `bun dev` starts every development workspace across the monorepo, including the documentation site. Use `bflow` or `bun cli` to start the terminal automation studio.
 
 ---
 
 ## 🚩 Global Flags & Options
 
-### Workflow Execution Flags (`bun flow`)
+### Workflow Execution Flags (`bflow flow`)
 
 | Flag | Type | Description |
 | :--- | :--- | :--- |
 | `--headed` | Boolean | Launch Chrome visibly on your desktop (default is headless). |
 | `--headless=false` | Boolean | Alias for `--headed`. |
-| `--<key>=<value>` | Any | Override workflow variable (e.g. `--searchQuery="Bun"`). |
+| `--<key>=<value>` | Any | Override workflow variable (e.g. `--query="Bun runtime"` or `--limit=10`). |
 
-### Browser profile flags
+---
 
-These flags apply to commands that launch Chrome, including `record`, `flow`, `workflow run`, `task`, and `repl`.
+### Browser Profile Flags
 
-| Flag | Description |
-| :--- | :--- |
-| `--profile=<id>` | Use a detected browser profile by cloning it into an automation-safe temporary directory. |
-| `--direct-profile` | Use the selected profile directory directly instead of cloning it. Close the normal browser first and use this only when direct access is intentional. |
-| `--user-data-dir=<path>` | Use an explicit Chrome user-data directory. |
-| `--profile-directory=<name>` | Select a profile directory inside the user-data directory. `--profile-dir` is an alias. |
-
-List safe profile IDs first with `bflow profiles` or `bun apps/tui/src/index.ts profiles`.
-
-### Data-driven workflow flags
+Applicable across all browser-launching commands (`record`, `flow`, `workflow run`, `task`, `repl`):
 
 | Flag | Description |
 | :--- | :--- |
-| `--data=<uri>` | Select a provider URI such as `google-sheets://ID/Users`. |
-| `--data-source=<name>` | Select a named entry from the workflow's `dataSources`. |
-| `--parallel=<count>` | Set the bounded browser-worker concurrency. |
-| `--batch-size=<count>` | Set provider read and result-write batch size. |
-| `--from-row`, `--to-row` | Restrict absolute provider row numbers. |
-| `--where='<expression>'` | Filter rows before scheduling them. |
-| `--resume` | Skip rows already marked completed. |
-| `--retry-failed` | Include previously failed rows when resuming. |
-| `--retry-count=<count>` | Retry transient row failures. |
-| `--dry-run` | Authenticate, inspect, filter, and validate without Chrome or provider write-back; a local summary is still produced. |
-| `--account=<email>` | Select a stored provider account. |
-| `--headed` / `--headless=false` | Show each browser worker instead of running headless. |
+| `--profile=<id>` | Clones an existing browser profile into a safe automation sandbox. |
+| `--direct-profile` | Uses the selected profile directory directly without cloning (requires Chrome to be closed). |
+| `--user-data-dir=<path>` | Uses an explicit custom Chrome user-data directory. |
+| `--profile-directory=<name>` | Selects a specific profile folder inside user-data directory (alias: `--profile-dir`). |
 
-See [External Data](/data/overview/) and [Google Sheets](/data/google-sheets/) for command examples.
+---
 
-### Google Sheets commands
+### External Data & Row Execution Flags (`bflow workflow run`)
 
-| Command | Purpose |
+| Flag | Description |
 | :--- | :--- |
-| `bun sheets login [--account=<hint>]` | Complete OAuth login in the system browser. |
-| `bun sheets status` / `bun sheets accounts` | List stored accounts and token status. |
-| `bun sheets logout [--account=<email>]` | Revoke and remove the selected/default account. |
-| `bun sheets list [--account=<email>]` | List accessible spreadsheets. |
-| `bun sheets inspect <sheet>` | Discover columns and inferred types. |
-| `bun sheets preview <sheet> [--limit=10]` | Read a redacted preview. |
-| `bun sheets read <sheet> [row flags]` | Stream rows as JSON. |
-| `bun sheets write <sheet> --row=N --values='<json>'` | Update named columns on one absolute sheet row. |
+| `--data=<uri>` | Provider URI (e.g. `google-sheets://SPREADSHEET_ID/Sheet1?range=A:E`). |
+| `--data-source=<name>` | Selects a named entry from the workflow's `dataSources` block. |
+| `--parallel=<count>` | Bounded concurrent browser workers (1–100). |
+| `--batch-size=<count>` | Provider read and write-back batch size (default: `25`). |
+| `--from-row=<n>`, `--to-row=<n>` | Restricts execution to absolute 1-based provider row numbers. |
+| `--where='<expression>'` | Filters rows before scheduling (`=`, `!=`, `>`, `<`, `>=`, `<=`, `~`). |
+| `--resume` | Skips rows already marked `completed` and continues pending work. |
+| `--retry-failed` | When resuming, includes rows that previously failed. |
+| `--retry-count=<count>` | Maximum automatic retries for transient errors (rate limits, timeouts). |
+| `--dry-run` | Discovers schema and validates plan without launching Chrome or mutating rows. |
+| `--account=<email>` | Selects a stored Google account. |
+| `--headed` | Runs worker browsers visibly on your desktop. |
 
-For `inspect`, `preview`, `read`, and `write`, `<sheet>` can be a spreadsheet ID or URL. Use `--sheet=<tab>`, `--range=A:E`, `--gid=<id>`, and `--header-row=N` to select its layout.
+---
 
-### One-Shot Automation Flags
+### Google Sheets CLI Commands (`bflow sheets`)
 
-You can also run quick one-shot actions directly:
-
-```bash
-bun apps/tui/src/index.ts --url https://example.com --screenshot output/shot.png
-```
-
-| Flag | Type | Description |
+| Command | Purpose | Example |
 | :--- | :--- | :--- |
-| `--url <url>` | String | Navigates directly to URL and logs load time. |
-| `--screenshot <path>` | String | Captures a screenshot to the specified path. |
-| `--headed` | Boolean | Runs in a visible browser window. |
+| `bflow sheets login` | Initiates OAuth 2.0 loopback login. | `bflow sheets login --account=user@corp.com` |
+| `bflow sheets status` | Validates token expiration and refresh capability. | `bflow sheets status` |
+| `bflow sheets accounts` | Lists all authenticated Google accounts. | `bflow sheets accounts` |
+| `bflow sheets list` | Lists all accessible Google Spreadsheets. | `bflow sheets list` |
+| `bflow sheets inspect <sheet>` | Discovers columns, types, and tab dimensions. | `bflow sheets inspect SPREADSHEET_ID --sheet=Users` |
+| `bflow sheets preview <sheet>` | Displays a redacted preview of first rows. | `bflow sheets preview SPREADSHEET_ID --limit=5` |
+| `bflow sheets read <sheet>` | Streams rows as JSON array. | `bflow sheets read SPREADSHEET_ID --from-row=2 --to-row=50` |
+| `bflow sheets write <sheet>` | Updates named columns on an absolute row. | `bflow sheets write SPREADSHEET_ID --row=2 --values='{"status":"done"}'` |
+| `bflow sheets logout` | Revokes and deletes stored credentials. | `bflow sheets logout --account=user@corp.com` |
 
 ---
 
 ## 🧪 Testing & Verification Scripts
 
-| Script | Command | Description |
+| Monorepo Script | Command | Description |
 | :--- | :--- | :--- |
 | `bun test` | `bun test apps/tui/tests` | Run the complete unit and integration test suite. |
 | `bun test:watch` | `bun test --watch apps/tui/tests` | Run tests in interactive watch mode. |
@@ -113,14 +103,19 @@ bun apps/tui/src/index.ts --url https://example.com --screenshot output/shot.png
 | `bun test:flows` | `bun test apps/tui/tests/flows.test.ts` | Run workflow execution test suite. |
 | `bun check` | `biome check --write .` | Format and lint all files with Biome. |
 | `bun check:max-lines` | `bun scripts/check-max-lines.ts` | Enforce file size modularity checks. |
-| `bun run build:release <target> <outfile> [version]` | `bun scripts/build-release.ts ...` | Compile a versioned standalone executable for a supported Bun target. |
+| `bun run build:release` | `bun scripts/build-release.ts ...` | Compile a versioned standalone executable for a supported target. |
 
 ---
 
-## 🧹 Process Management (`bun cleanup`)
+## 🧹 Process Management (`bflow cleanup`)
 
-If a browser session is abnormally interrupted or disconnected, you can cleanly terminate any remaining orphan Chrome instances without needing `killall` or Task Manager:
+If a browser session is abnormally interrupted, you can cleanly terminate any remaining orphan Chrome instances:
 
 ```bash
+# Standalone CLI
+bflow cleanup
+
+# Monorepo development
 bun cleanup
 ```
+

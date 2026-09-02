@@ -12,13 +12,14 @@ Traditional browser automation tools (like Puppeteer, Playwright, or Selenium) o
 Bflow takes a **human-first, declarative approach**:
 
 - **No heavy browser drivers**: Communicates directly with your local Google Chrome/Chromium over native WebSockets using CDP.
-- **Visual recording with In-Page HUD**: An interactive floating toolbar injected directly into Chrome records user actions, assertions, and data extractions.
-- **Human-centric text locators**: Locates elements by their human-visible text (e.g., `text="Submit"`), placeholder, or ARIA label rather than dynamic CSS classes like `.btn_x8z9`.
+- **Standalone zero-dependency binary**: Install via a one-line curl/powershell script and run `bflow` on macOS, Linux, and Windows without Node.js or Bun.
+- **Visual recording with In-Page HUD**: An interactive floating toolbar injected directly into Chrome records user actions, assertions, virtual camera feeds, and data extractions.
+- **Human-centric text locators**: Locates elements by their human-visible text (e.g., `text="Submit"`), placeholder, or ARIA label rather than fragile dynamic CSS classes.
 - **Declarative JSON workflows**: Workflows are stored as readable JSON files that can be edited, version-controlled, and replayed in CI/CD pipelines.
-- **Interactive Terminal Wizard**: Launch `bun cli` to access a guided terminal menu without starting the rest of the monorepo.
-- **Agent-assisted authoring**: Expose bounded observe/perform/verify/publish tools over MCP, then replay the generated flow without a model.
-- **External row execution**: Stream Google Sheets rows into isolated browser runs with filtering, transformations, retries, resume, and result write-back.
-- **Sensitive-data controls**: Keep secrets in environment variables and redact row secrets from artifacts and errors.
+- **Interactive Terminal Wizard**: Launch `bflow` (or `bun cli`) to access a guided terminal menu without remembering flags.
+- **Agent-assisted authoring via MCP**: Expose bounded observe/perform/verify/publish tools over MCP stdio to AI agents (Claude Code, Codex), then replay the generated flow without an AI model or API keys.
+- **External row execution & Google Sheets**: Stream rows into isolated browser runs with filtering, transformations, retries, resume, and result write-back.
+- **Sensitive-data controls**: Keep secrets in environment variables (`{{env.NAME}}`) and redact sensitive row values from logs, summaries, screenshots, and PDFs.
 
 ---
 

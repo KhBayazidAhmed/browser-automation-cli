@@ -5,9 +5,9 @@ description: Inject synthetic test patterns, local video files, and remote video
 
 # 📹 Virtual Webcam & MediaStream Injection
 
-Automating websites that require webcam access (such as video conferencing, KYC identity verification, avatar onboarding, and WebRTC applications) is notoriously difficult in traditional automation setups.
+Automating websites that require webcam access (such as video conferencing, KYC identity verification, avatar onboarding, and WebRTC video applications) is notoriously difficult in traditional automation setups.
 
-**Bflow** includes a built-in **CDP Virtual Webcam & MediaStream Injection Engine** that intercepts `navigator.mediaDevices.getUserMedia` and `navigator.mediaDevices.enumerateDevices` to feed custom video streams directly to the webpage.
+**Bflow** includes a built-in **CDP Virtual Webcam & MediaStream Injection Engine** that intercepts `navigator.mediaDevices.getUserMedia` and `navigator.mediaDevices.enumerateDevices` to feed custom synthetic or video streams directly to the webpage.
 
 ---
 
@@ -17,15 +17,15 @@ Automating websites that require webcam access (such as video conferencing, KYC 
 - **Synthetic 30 FPS Test Pattern**: Draws an animated test pattern with a real-time UTC timestamp, perfect for verifying WebRTC streaming latency and FPS.
 - **Local Video File Feed**: Loop any local `.mp4` or `.webm` video file as your virtual camera input.
 - **Remote Video URL Stream**: Stream live or hosted video directly from any public or CORS-enabled URL.
-- **In-Page HUD Webcam Modal**: Switch video feeds interactively during a recording session.
+- **In-Page HUD Webcam Modal**: Switch video feeds interactively during a recording session (`Capture ▾ → Virtual camera`).
 
 ---
 
 ## 🎛️ Controlling Virtual Webcam from the In-Page HUD
 
-During visual recording:
+During visual recording (`bflow record ...` or `bun record ...`):
 
-1. Click the **📹 Webcam** button in the floating HUD toolbar.
+1. Click **Capture ▾ → Virtual camera** on the floating HUD toolbar.
 2. The **Virtual Webcam Controller Modal** will display the current active feed status.
 3. Select your desired input source:
    - **Synthetic Test Pattern**: Generates a 640x480 @ 30 FPS animated vector canvas with moving markers and UTC clock.
@@ -46,7 +46,7 @@ window.__cdpVirtualWebcam.setPattern();
 // Switch to remote video URL
 await window.__cdpVirtualWebcam.setVideoUrl("https://example.com/sample-webcam-feed.mp4");
 
-// Clear virtual stream
+// Clear virtual stream and revert to default
 window.__cdpVirtualWebcam.clear();
 ```
 
@@ -66,3 +66,4 @@ console.log(videoTrack.label); // "CDP Virtual Webcam (HD)"
 
 > [!TIP]
 > The virtual webcam is fully sandboxed within your Chrome CDP session, requiring no third-party OBS virtual camera drivers or OS kernel extensions.
+

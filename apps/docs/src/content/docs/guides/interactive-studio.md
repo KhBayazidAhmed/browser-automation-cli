@@ -5,17 +5,22 @@ description: Master the guided terminal wizard for Bflow.
 
 # ⚡ Interactive Studio — The Easy Way
 
-The **Interactive Studio** is the most intuitive and beginner-friendly way to use Bflow. You don't need to memorize complex CLI arguments or flags — simply run a single command and navigate with your arrow keys.
+The **Interactive Studio** is the most intuitive way to use Bflow. You don't need to memorize CLI arguments or flags — simply run a single command and navigate with your arrow keys.
+
+---
 
 ## 🚀 Launching the Studio
 
-Run the CLI workspace command from the repository root:
-
 ```bash
+# Standalone CLI
+bflow
+
+# Monorepo development
 bun cli
 ```
 
-`bun dev` starts every development workspace, including the documentation site, and is not an alias for the studio.
+> [!NOTE]
+> `bun dev` starts every development workspace across the monorepo, including the documentation site. Use `bun cli` when you want to run the automation studio standalone in a source checkout.
 
 ---
 
@@ -42,8 +47,8 @@ When the studio launches, you are presented with a clean, guided interactive wiz
 ### 1. 🌊 Run a Workflow
 Select this option to browse and run existing JSON workflow files:
 - **Auto-detection**: The CLI automatically scans the `workflows/` directory and lists all available `.json` files.
-- **Headed / Headless Mode**: Choose whether to run the browser invisibly in the background (Headless) or watch Chrome perform the actions on your desktop (Headed).
-- **Execution Summary**: Displays step-by-step progress, execution time, pass/fail status, and any extracted data in real time.
+- **Headed / Headless Mode**: Choose whether to run Chrome invisibly in the background (Headless) or watch Chrome perform the actions on your desktop (Headed).
+- **Execution Summary**: Displays real-time progress, execution duration, pass/fail status, and any extracted variables.
 
 ---
 
@@ -66,23 +71,24 @@ The wizard prompts you for customizable task parameters (such as `limit`, `url`,
 ---
 
 ### 4. 💬 Open Interactive Browser REPL
-Launches a live, persistent Chrome DevTools Protocol session with a command-line interface:
+Launches a live, persistent Chrome DevTools Protocol session with an interactive command prompt:
 - Navigate with `goto <url>`
 - Click elements with `click <selector>`
 - Type text with `type <selector> <text>`
-- Capture screenshots with `screenshot <file.png>`
-- Read text with `text <selector>`
+- Switch frame context with `frames` and `frame <idx>`
+- Capture screenshots with `screenshot <file.png>` or PDF with `pdf <file.pdf>`
 - Evaluate JavaScript with `eval <expression>`
 
 ---
 
 ### 5. 📁 View Extracted Data & Outputs
-Quickly inspect extracted results, logs, and screenshots stored in the `output/` directory directly within your terminal.
+Quickly inspect extracted results, audit summaries, and screenshots stored in the `output/` directory directly within your terminal.
 
 ---
 
 ## 💡 Why Use Interactive Studio?
 
-1. **Zero Configuration**: No need to write scripts or configure headless flags.
+1. **Zero Configuration**: No need to memorize command arguments or flags.
 2. **Interactive Prompts**: Prompts guide you step-by-step with clear defaults.
-3. **Safe & Clean**: Automatic browser lifecycle handling ensures no zombie Chrome processes are left running in the background.
+3. **Safe & Clean**: Automatic browser lifecycle handling ensures no orphan Chrome processes are left running in the background.
+

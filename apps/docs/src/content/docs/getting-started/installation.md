@@ -105,29 +105,45 @@ You should see 50+ passing tests verifying locators, flow runners, assertion eng
 
 ## 🚀 Launch the Studio
 
-For a release installation, launch the interactive wizard:
+For standalone binary installations:
 
 ```bash
 bflow
 ```
 
-For a source checkout:
+For monorepo source development:
 
 ```bash
 bun cli
 ```
 
-`bun dev` starts all development workspaces, including the docs site. Use `bun cli` for the automation studio alone.
+> [!NOTE]
+> `bun dev` starts all development workspaces across the monorepo, including the documentation site. Use `bun cli` when you want to run the automation studio standalone in a source checkout.
+
+---
 
 ## 📦 Building a Standalone Executable
 
-The release builder compiles the CLI into a single executable and embeds the supplied version:
+The release builder compiles the CLI into a single zero-dependency executable and embeds the supplied version:
 
 ```bash
+# Build standalone binary for current or cross-platform target
 bun run build:release bun-darwin-arm64 dist/bflow 0.1.0
+
+# Verify compiled binary
 ./dist/bflow --version
 ```
 
-Supported target names are `bun-darwin-arm64`, `bun-darwin-x64`, `bun-linux-arm64`, `bun-linux-arm64-musl`, `bun-linux-x64-baseline`, `bun-linux-x64-musl`, `bun-windows-arm64`, and `bun-windows-x64-baseline`. Source runs report the version as `development`; compiled releases report the embedded version.
+Supported target names are:
+- `bun-darwin-arm64` (macOS Apple Silicon)
+- `bun-darwin-x64` (macOS Intel)
+- `bun-linux-arm64` (Linux ARM64 / glibc)
+- `bun-linux-arm64-musl` (Linux ARM64 / musl, e.g., Alpine)
+- `bun-linux-x64-baseline` (Linux x64 / glibc)
+- `bun-linux-x64-musl` (Linux x64 / musl, e.g., Alpine)
+- `bun-windows-arm64` (Windows ARM64)
+- `bun-windows-x64-baseline` (Windows x64)
 
-Workflow and output paths are resolved from the current working directory. This keeps `workflows/` and `output/` beside the project that invokes either the source CLI or standalone executable.
+Source checkouts report the version as `development`; compiled standalone releases report their embedded version number (e.g. `bflow 0.1.0`).
+
+All workflow paths (`workflows/`) and execution outputs (`output/`) are resolved relative to the current working directory from which `bflow` or `bun cli` is executed.
