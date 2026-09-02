@@ -100,21 +100,20 @@ export const INJECTED_DRAWER_RENDER_SRC = `
 
   function renderDrawer() {
     updateBadge();
-    if (!isDrawerOpen) return;
     const sub = shadow.getElementById("drawer-subtitle");
     const stepCount = (flowState.steps || []).length;
     const varCount = Object.keys(flowState.variables || {}).length;
     if (sub) {
-      sub.innerText = "Flow: " + (flowState.name || "Recorded Flow") + " • " + stepCount + " " + (stepCount === 1 ? "step" : "steps") + " • " + varCount + " " + (varCount === 1 ? "variable" : "variables");
+      sub.innerText = "Flow: " + (flowState.name || "Recorded Flow") + " • " + stepCount + " steps • " + varCount + " variables";
     }
     const stepsCount = shadow.getElementById("tab-steps-count");
     const varsCount = shadow.getElementById("tab-vars-count");
     if (stepsCount) stepsCount.innerText = stepCount;
     if (varsCount) varsCount.innerText = varCount;
-    const activeTab = shadow.querySelector(".drawer-tab.active")?.getAttribute("data-tab") || "steps";
-    if (activeTab === "steps") renderStepsList();
-    else if (activeTab === "json") renderJsonViewer();
-    else if (activeTab === "vars") renderVarsList();
+    if (!isDrawerOpen) return;
+    renderStepsList();
+    renderJsonViewer();
+    renderVarsList();
   }
 
   function toggleDrawer(open) {
