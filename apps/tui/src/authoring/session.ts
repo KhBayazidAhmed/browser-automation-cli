@@ -215,6 +215,74 @@ export class AuthoringSession {
 		return { path: targetPath, flow, stepCount: flow.steps.length, tracePath: this.trace.path };
 	}
 
+	getDraft() {
+		this.assertUsable();
+		return {
+			sessionId: this.id,
+			stepCount: this.steps.length,
+			steps: this.steps.map((step, index) => ({ index: index + 1, ...traceSafeStep(step) })),
+			extractedVariables: Object.keys(this.extractedData),
+			hasAssertion: this.steps.some((step) => step.action === "assert"),
+		};
+	}
+
+	async undoLastStep() {
+		this.assertUsable();
+		if (this.steps.length === 0) {
+			throw new Error("No steps in draft to undo");
+		}
+		const removedStep = this.steps.pop();
+		if (!removedStep) {
+			throw new Error("No steps in draft to undo");
+		}
+		if ("as" in removedStep && typeof (removedStep as Record<string, unknown>).as === "string") {
+			delete this.extractedData[(removedStep as Record<string, unknown>).as as string];
+		}
+		await this.trace.append({
+			kind: "draft_mutation",
+			url: await this.page.url(),
+			metadata: {
+				action: "undo",
+				removedStep: traceSafeStep(removedStep),
+				remainingStepCount: this.steps.length,
+			},
+		});
+		return {
+			undone: true,
+			removedStep: traceSafeStep(removedStep),
+			remainingStepCount: this.steps.length,
+			observation: await this.safeObserve(),
+		};
+	}
+
+	async editStep(stepIndex: number, updatedStep: FlowStep) {
+		this.assertUsable();
+		const arrayIndex = stepIndex - 1;
+		const previousStep = this.steps[arrayIndex];
+		if (arrayIndex < 0 || arrayIndex >= this.steps.length || !previousStep) {
+			throw new Error(`Invalid step index ${stepIndex}. Draft has ${this.steps.length} steps.`);
+		}
+		const validated = parseFlowDefinition({ name: "Draft edit", steps: [updatedStep] });
+		const validStep = validated.steps[0] as FlowStep;
+		this.steps[arrayIndex] = validStep;
+		await this.trace.append({
+			kind: "draft_mutation",
+			url: await this.page.url(),
+			metadata: {
+				action: "edit",
+				stepIndex,
+				previous: traceSafeStep(previousStep),
+				updated: traceSafeStep(validStep),
+			},
+		});
+		return {
+			edited: true,
+			stepIndex,
+			step: traceSafeStep(validStep),
+			stepCount: this.steps.length,
+		};
+	}
+
 	async getTrace() {
 		return this.trace.read();
 	}

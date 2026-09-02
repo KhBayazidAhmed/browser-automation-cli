@@ -176,6 +176,63 @@ export function createBrowserAutomationMcpServer(manager: AuthoringSessionManage
 	);
 
 	server.registerTool(
+		"browser_draft_get",
+		{
+			description:
+				"Inspect the current recorded sequence of steps and extracted variables in the authoring draft.",
+			inputSchema: z.object({ sessionId: z.string().uuid() }),
+			annotations: { readOnlyHint: true, destructiveHint: false },
+		},
+		async ({ sessionId }) => {
+			try {
+				return jsonResult(manager.get(sessionId).getDraft());
+			} catch (error) {
+				return errorResult(error);
+			}
+		},
+	);
+
+	server.registerTool(
+		"browser_draft_undo",
+		{
+			description:
+				"Remove the last recorded step from the authoring draft and observe current state.",
+			inputSchema: z.object({ sessionId: z.string().uuid() }),
+			annotations: { readOnlyHint: false, destructiveHint: true },
+		},
+		async ({ sessionId }) => {
+			try {
+				return jsonResult(await manager.get(sessionId).undoLastStep());
+			} catch (error) {
+				return errorResult(error);
+			}
+		},
+	);
+
+	server.registerTool(
+		"browser_draft_edit",
+		{
+			description:
+				"Update or replace a specific recorded step by 1-indexed step number in the authoring draft.",
+			inputSchema: z.object({
+				sessionId: z.string().uuid(),
+				stepIndex: z.number().int().min(1),
+				step: flowStepSchema,
+			}),
+			annotations: { readOnlyHint: false, destructiveHint: true },
+		},
+		async ({ sessionId, stepIndex, step }) => {
+			try {
+				return jsonResult(
+					await manager.get(sessionId).editStep(stepIndex, step as unknown as FlowStep),
+				);
+			} catch (error) {
+				return errorResult(error);
+			}
+		},
+	);
+
+	server.registerTool(
 		"browser_trace_get",
 		{
 			description:

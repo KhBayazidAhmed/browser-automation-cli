@@ -45,7 +45,8 @@ export type AuthoringTraceKind =
 	| "observation"
 	| "action"
 	| "published"
-	| "session_closed";
+	| "session_closed"
+	| "draft_mutation";
 
 export interface AuthoringTraceRecord {
 	sequence: number;
