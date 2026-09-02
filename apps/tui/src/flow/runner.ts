@@ -1,21 +1,13 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { Browser } from "../cdp/browser.js";
+import { watchNetworkActivity } from "../cdp/page/page-settle.js";
 import { redactSensitive } from "../data/redaction.js";
-import {
-	mergeVariableScopes,
-	referencedEnvironmentVariables,
-	type VariableScopes,
-} from "../data/variables.js";
+import { referencedEnvironmentVariables, type VariableScopes } from "../data/variables.js";
 import { OUTPUT_DIR } from "../runtime-paths.js";
-import {
-	logFlowStart,
-	logFlowSummary,
-	logStepFail,
-	logStepPass,
-	logStepStart,
-} from "./runner-logger.js";
-import { executeStep } from "./step-executor.js";
+import { FlowDebugger } from "./debugger.js";
+import { logFlowStart, logFlowSummary } from "./runner-logger.js";
+import { runStepLoop } from "./step-loop.js";
 import type { FlowDefinition, FlowExecutionResult, StepExecutionResult } from "./types.js";
 import { parseFlowDefinition } from "./validate.js";
 
@@ -37,6 +29,7 @@ export class FlowRunner {
 			variableScopes?: Omit<VariableScopes, "workflow" | "cli">;
 			writeArtifacts?: boolean;
 			redactValues?: string[];
+			debug?: boolean;
 		} = {},
 	): Promise<FlowExecutionResult> {
 		const outputDir = OUTPUT_DIR;
@@ -95,6 +88,7 @@ export class FlowRunner {
 
 		const isHeadless = options.headless ?? validatedFlow.headless ?? true;
 		let browser: Browser | null = null;
+		let debug: FlowDebugger | null = null;
 		let result: FlowExecutionResult;
 
 		try {
@@ -104,130 +98,30 @@ export class FlowRunner {
 				profileDirectory: options.profileDirectory,
 			});
 			const page = await browser.newPage();
+			const networkWatcher = watchNetworkActivity(page);
 
 			if (validatedFlow.blockMedia) {
 				await page.blockResources(["image", "font", "media"]);
 			}
 
-			for (const [i, step] of validatedFlow.steps.entries()) {
-				const stepName = step.name || `${step.action.toUpperCase()} Step ${i + 1}`;
-				const stepStart = performance.now();
+			debug = options.debug
+				? FlowDebugger.create({
+						pageSummary: async () => ({ url: await page.url(), title: await page.title() }),
+						collectedData: () => extractedData,
+					})
+				: null;
 
-				logStepStart(i + 1, validatedFlow.steps.length, stepName);
+			await runStepLoop({
+				steps: validatedFlow.steps,
+				page,
+				variableScopes,
+				redactValues,
+				extractedData,
+				stepResults,
+				debug,
+			});
 
-				if (step.condition) {
-					const cond = step.condition;
-					let targetExists = false;
-					try {
-						const condSelector = cond.exists || cond.selector;
-						const condText = cond.text;
-						if (condSelector || condText) {
-							targetExists = await page.waitForSelector(condSelector, {
-								text: condText,
-								timeout: 400,
-							});
-						}
-					} catch {
-						targetExists = false;
-					}
-					const matchesCondition = cond.not ? !targetExists : targetExists;
-					if (!matchesCondition) {
-						console.log("  ↷ \x1b[2mSkipped (condition not met)\x1b[0m");
-						stepResults.push({
-							stepIndex: i + 1,
-							name: stepName,
-							action: step.action,
-							durationMs: 0,
-							status: "skipped",
-							success: true,
-						});
-						continue;
-					}
-				}
-
-				const maxAttempts = step.retry?.maxAttempts ?? 1;
-				const backoffMs = step.retry?.backoffMs ?? 500;
-				let lastError: unknown;
-				let stepSucceeded = false;
-				let extractedResult: unknown;
-
-				for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-					try {
-						extractedResult = await executeStep(
-							step,
-							page,
-							mergeVariableScopes({
-								...variableScopes,
-								step: {
-									...variableScopes.step,
-									...step.variables,
-									...extractedData,
-								},
-							}),
-						);
-						stepSucceeded = true;
-						break;
-					} catch (err: unknown) {
-						lastError = err;
-						if (attempt < maxAttempts) {
-							console.log(
-								`  ↻ \x1b[33mRetry ${attempt}/${maxAttempts} for step ${i + 1} (${stepName})...\x1b[0m`,
-							);
-							await new Promise((r) => setTimeout(r, backoffMs));
-						}
-					}
-				}
-
-				const durationMs = Math.round(performance.now() - stepStart);
-
-				if (stepSucceeded) {
-					const s = step as Record<string, unknown>;
-					if (extractedResult !== undefined && "as" in step && s.as) {
-						extractedData[s.as as string] = extractedResult;
-					}
-
-					stepResults.push({
-						stepIndex: i + 1,
-						name: stepName,
-						action: step.action,
-						durationMs,
-						success: true,
-						status: "pass",
-						extracted: extractedResult,
-					});
-
-					logStepPass(durationMs);
-				} else {
-					const rawError = lastError instanceof Error ? lastError.message : String(lastError);
-					const errorMsg = redactSensitive(rawError, redactValues);
-
-					if (step.optional || step.continueOnError) {
-						console.log(`  ⚠️ \x1b[33mIgnored failure (optional step): ${errorMsg}\x1b[0m`);
-						stepResults.push({
-							stepIndex: i + 1,
-							name: stepName,
-							action: step.action,
-							durationMs,
-							success: false,
-							status: "skipped",
-							error: errorMsg,
-						});
-					} else {
-						stepResults.push({
-							stepIndex: i + 1,
-							name: stepName,
-							action: step.action,
-							durationMs,
-							success: false,
-							status: "fail",
-							error: errorMsg,
-						});
-
-						logStepFail(errorMsg);
-						throw new Error(`Flow aborted at step ${i + 1} (${stepName}): ${errorMsg}`);
-					}
-				}
-			}
+			await networkWatcher.waitForQuiet();
 
 			result = {
 				flowName: validatedFlow.name,
@@ -250,6 +144,7 @@ export class FlowRunner {
 				error: errorMsg,
 			};
 		} finally {
+			debug?.close();
 			if (browser) {
 				await browser.close();
 			}

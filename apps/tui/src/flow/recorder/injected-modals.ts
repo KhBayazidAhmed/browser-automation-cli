@@ -156,6 +156,7 @@ export const INJECTED_MODALS_SRC = `
 
   const togglePause = (e) => {
     e?.stopPropagation();
+    if (!flowState.isPaused) flushPendingPointerStep();
     flowState.isPaused = !flowState.isPaused;
     persistState(); updateBadge();
     if (btnPause) btnPause.innerHTML = flowState.isPaused ? (${JSON.stringify(ICONS.play)} + '<span class="hud-action-label">Resume</span>') : (${JSON.stringify(ICONS.pause)} + '<span class="hud-action-label">Pause</span>');
@@ -222,6 +223,7 @@ export const INJECTED_MODALS_SRC = `
 
   btnUndo?.addEventListener("click", (e) => {
     e.stopPropagation();
+    flushPendingPointerStep();
     if (flowState.steps.length > 0) {
       const removed = flowState.steps.pop();
       persistState(); renderDrawer();
@@ -232,6 +234,7 @@ export const INJECTED_MODALS_SRC = `
 
   btnStop?.addEventListener("click", (e) => {
     e.stopPropagation();
+    flushPendingPointerStep();
     emitRecordEvent({ type: "finish", flow: flowState });
     showToast("Flow saved successfully!");
   });

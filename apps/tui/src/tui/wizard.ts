@@ -119,9 +119,20 @@ export async function runInteractiveWizard() {
 				continue;
 			}
 
+			const formatWorkflowDate = (ms: number): string => {
+				const date = new Date(ms);
+				const sameYear = date.getFullYear() === new Date().getFullYear();
+				const day = date.toLocaleDateString(undefined, {
+					month: "short",
+					day: "numeric",
+					...(sameYear ? {} : { year: "numeric" }),
+				});
+				return `${day} ${date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}`;
+			};
+
 			const wfChoices = workflows.map((wf) => ({
 				value: wf,
-				label: `${wf.flow.name} (${wf.stepCount} steps)`,
+				label: `${wf.flow.name} (${wf.stepCount} steps · ${formatWorkflowDate(wf.createdAt)})`,
 				hint: wf.filename,
 			}));
 

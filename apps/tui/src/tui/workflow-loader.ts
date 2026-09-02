@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { FlowDefinition } from "../flow/types.js";
 import { parseFlowDefinition } from "../flow/validate.js";
@@ -9,6 +9,7 @@ export interface WorkflowFile {
 	path: string;
 	flow: FlowDefinition;
 	stepCount: number;
+	createdAt: number;
 }
 
 export function loadAllWorkflows(): WorkflowFile[] {
@@ -26,11 +27,13 @@ export function loadAllWorkflows(): WorkflowFile[] {
 		try {
 			const content = parseFlowDefinition(JSON.parse(readFileSync(fullPath, "utf-8")));
 			if (content) {
+				const stats = statSync(fullPath);
 				loaded.push({
 					filename,
 					path: fullPath,
 					flow: content as FlowDefinition,
 					stepCount: content.steps.length,
+					createdAt: stats.birthtimeMs > 0 ? stats.birthtimeMs : stats.mtimeMs,
 				});
 			}
 		} catch {}

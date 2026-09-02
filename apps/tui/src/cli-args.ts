@@ -13,7 +13,7 @@ export function printUsage(): void {
 Bflow — Browser Workflow Automation
 
   ${CLI_NAME}                              Open the interactive wizard
-  ${CLI_NAME} run <file> [--k=v]           Run a workflow (supports --data=<uri>)
+  ${CLI_NAME} run <file> [--k=v] [--debug]  Run a workflow (supports --data=<uri>)
   ${CLI_NAME} record [file] [url]          Record a workflow
   ${CLI_NAME} data providers|list          List installed data providers
   ${CLI_NAME} sheets <command>             Manage Google Sheets data

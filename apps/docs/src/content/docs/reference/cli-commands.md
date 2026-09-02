@@ -40,6 +40,7 @@ Bflow provides an extensive set of commands whether running the standalone `bflo
 | :--- | :--- | :--- |
 | `--headed` | Boolean | Launch Chrome visibly on your desktop (default is headless). |
 | `--headless=false` | Boolean | Alias for `--headed`. |
+| `--debug` | Boolean | Pause before each step in an interactive debugger: run next, continue all, go back one step, skip a step, inspect extracted variables and page state, retry or skip after failures, or quit. Requires an interactive terminal. |
 | `--<key>=<value>` | Any | Override workflow variable (e.g. `--query="Bun runtime"` or `--limit=10`). |
 
 ---

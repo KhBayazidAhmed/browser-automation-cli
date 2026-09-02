@@ -29,6 +29,7 @@ const PAGES: Record<string, string> = {
 	"/iframe-list": `<!DOCTYPE html><html><head><title>Iframe List</title></head><body><ul class="frame-list"><li class="f-item" data-code="C-101">Item Alpha</li><li class="f-item" data-code="C-102">Item Beta</li><li class="f-item" data-code="C-103">Item Gamma</li></ul></body></html>`,
 	"/iframes-list-host": `<!DOCTYPE html><html><head><title>List Host</title></head><body><h1>Host Page</h1><iframe id="frame-list-host" name="listFrame" src="/iframe-list"></iframe></body></html>`,
 	"/click-count": `<!DOCTYPE html><html><body><button id="count-button" onclick="window.clickCount=(window.clickCount||0)+1">Count Once</button></body></html>`,
+	"/settle-submit": `<!DOCTYPE html><html><head><title>Settle Submit</title></head><body><form onsubmit="event.preventDefault(); setTimeout(() => { fetch('/settle-received', { method: 'POST', body: document.getElementById('settle-input').value }); }, 400);"><input id="settle-input" placeholder="Message" /><button id="btn-settle-send" type="submit">Send Delayed</button></form></body></html>`,
 	"/resource-blocking": `<!DOCTYPE html><html><head><link rel="stylesheet" href="/asset.css"></head><body><img src="/asset.png"><script src="/asset.js"></script></body></html>`,
 };
 

@@ -4,6 +4,7 @@ const colors = {
 	dim: "\x1b[2m",
 	green: "\x1b[32m",
 	red: "\x1b[31m",
+	yellow: "\x1b[33m",
 	cyan: "\x1b[36m",
 };
 
@@ -30,6 +31,12 @@ export function logStepPass(durationMs: number) {
 export function logStepFail(errorMsg: string) {
 	console.log(`${colors.red}✗ FAIL${colors.reset}`);
 	console.log(`    ${colors.red}↳ ${errorMsg}${colors.reset}`);
+}
+
+export function logStepSkipped(reason?: string) {
+	console.log(
+		`${colors.yellow}⏭ SKIPPED${colors.reset}${reason ? ` ${colors.dim}(${reason})${colors.reset}` : ""}`,
+	);
 }
 
 export function logFlowSummary(

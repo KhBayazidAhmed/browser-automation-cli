@@ -228,4 +228,19 @@ describe("Declarative Flows & Multi-Step Extraction", () => {
 		expect(failResult.success).toBe(false);
 		expect(failResult.error).toContain("does-not-exist-element-99");
 	}, 15000);
+
+	test("6. waits for delayed submissions to reach the server before closing the browser", async () => {
+		const settleFlow: FlowDefinition = {
+			name: "Delayed Submit Settle Flow",
+			steps: [
+				{ name: "Open Delayed Submit Page", action: "goto", url: ctx.server.url("/settle-submit") },
+				{ name: "Fill Message", action: "type", selector: "#settle-input", text: "ping" },
+				{ name: "Click Send", action: "click", selector: "#btn-settle-send" },
+			],
+		};
+
+		const result = await FlowRunner.run(settleFlow, {}, { writeArtifacts: false });
+		expect(result.success).toBe(true);
+		expect(ctx.server.requestCount("/settle-received")).toBeGreaterThanOrEqual(1);
+	}, 20000);
 });

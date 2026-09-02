@@ -137,7 +137,10 @@ export const INJECTED_DOM_EVENTS_SRC = `
     }
 
     recordPointerStep(e, target);
+    flushPendingPointerStep();
   }, true);
+
+  window.addEventListener('pagehide', () => flushPendingPointerStep(), true);
 
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && isWaitTargetMode) {
