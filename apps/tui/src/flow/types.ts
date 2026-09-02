@@ -13,6 +13,18 @@ export type FlowActionType =
 	| "assert"
 	| "save";
 
+export interface StepRetryOptions {
+	maxAttempts: number;
+	backoffMs?: number;
+}
+
+export interface StepConditionOptions {
+	exists?: string;
+	selector?: string;
+	text?: string;
+	not?: boolean;
+}
+
 export interface BaseStep {
 	[key: string]: unknown;
 	name?: string;
@@ -26,6 +38,10 @@ export interface BaseStep {
 	endsWith?: string;
 	normalizeWhitespace?: boolean;
 	variables?: Record<string, unknown>;
+	optional?: boolean;
+	continueOnError?: boolean;
+	retry?: StepRetryOptions;
+	condition?: StepConditionOptions;
 }
 
 export interface GotoStep extends BaseStep {
